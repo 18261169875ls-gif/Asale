@@ -1,6 +1,36 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Bot,
+  Boxes,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  CircleUserRound,
+  ClipboardCheck,
+  Clock3,
+  FileText,
+  Image as ImageIcon,
+  Lightbulb,
+  MessageSquare,
+  Mic,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Paperclip,
+  Plus,
+  RefreshCw,
+  Search,
+  Send,
+  SlidersHorizontal,
+  Smile,
+  Sparkles,
+  SquareCheckBig,
+  UserRound,
+  Users,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 
 type Message = {
   id: string;
@@ -137,12 +167,12 @@ const initialCustomers: Customer[] = [
   },
 ];
 
-const navItems = [
-  ["消息", "▣"],
-  ["客户", "◎"],
-  ["任务", "✓"],
-  ["日程", "□"],
-  ["业务工具", "◇"],
+const navItems: Array<{ label: string; icon: LucideIcon }> = [
+  { label: "消息", icon: MessageSquare },
+  { label: "客户", icon: Users },
+  { label: "任务", icon: SquareCheckBig },
+  { label: "日程", icon: CalendarDays },
+  { label: "业务工具", icon: Boxes },
 ];
 
 export default function Home() {
@@ -292,18 +322,18 @@ export default function Home() {
           <strong>{navExpanded ? "Asale" : "A"}</strong>
           {navExpanded && <><span>销售辅助系统</span><small>示例企业</small></>}
         </div>
-        {navExpanded && <button className="new-chat" onClick={() => setActiveId(null)}>＋ 新对话</button>}
+        {navExpanded && <button className="new-chat" onClick={() => setActiveId(null)}><Plus size={17} /> 新对话</button>}
         <nav>
-          {navItems.map(([label, icon]) => (
+          {navItems.map(({ label, icon: Icon }) => (
             <button key={label} className={label === "消息" ? "active" : ""} aria-label={label} title={label}>
-              <span className="nav-icon">{icon}</span>{navExpanded && <span>{label}</span>}
+              <span className="nav-icon"><Icon size={18} strokeWidth={1.8} /></span>{navExpanded && <span>{label}</span>}
             </button>
           ))}
         </nav>
         <div className="nav-bottom">
-          <button aria-label="我的" title="我的"><span className="nav-icon">○</span>{navExpanded && <span>我的</span>}</button>
+          <button aria-label="我的" title="我的"><span className="nav-icon"><CircleUserRound size={18} /></span>{navExpanded && <span>我的</span>}</button>
           <button aria-label={navExpanded ? "收起导航" : "展开导航"} onClick={() => setNavExpanded((value) => !value)}>
-            <span className="nav-icon">{navExpanded ? "‹" : "›"}</span>{navExpanded && <span>收起</span>}
+            <span className="nav-icon">{navExpanded ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}</span>{navExpanded && <span>收起</span>}
           </button>
         </div>
       </aside>
@@ -382,18 +412,18 @@ function Overview({
           <span className="demo-tag">演示数据</span>
         </header>
         <section className="summary-strip" aria-label="工作摘要">
-          <Summary icon="▥" title="昨日简报" value="已回复 8 位客户" />
-          <Summary icon="✓" title="今日任务" value="5" />
-          <Summary icon="□" title="即将日程" value="2" />
-          <Summary icon="○" title="跟进建议" value="3" />
+          <Summary icon={FileText} title="昨日简报" value="已回复 8 位客户" />
+          <Summary icon={ClipboardCheck} title="今日任务" value="5" />
+          <Summary icon={Clock3} title="即将日程" value="2" />
+          <Summary icon={Lightbulb} title="跟进建议" value="3" />
         </section>
         <section className="pending-panel">
           <div className="panel-title-row">
             <div><h2>待回复客户</h2><span>{customers.length} 位客户等待处理</span></div>
             <div className="list-actions">
-              {listUpdated && <button className="update-button" onClick={() => { setListUpdated(false); setNotice("待回复列表已按最新优先级排序"); }}>↻ 列表有更新</button>}
-              <label className="search-box"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索客户" /></label>
-              <button className="filter-button">▽ 筛选</button>
+              {listUpdated && <button className="update-button" onClick={() => { setListUpdated(false); setNotice("待回复列表已按最新优先级排序"); }}><RefreshCw size={14} />列表有更新</button>}
+              <label className="search-box"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索客户" /></label>
+              <button className="filter-button"><SlidersHorizontal size={14} />筛选</button>
             </div>
           </div>
           <div className="customer-table" role="table" aria-label="待回复客户">
@@ -413,20 +443,20 @@ function Overview({
           </div>
         </section>
         <section className="global-ai">
-          <div><strong>Asale AI</strong><span>跨客户查询、总结进度或执行销售任务</span></div>
-          <div className="global-composer"><textarea aria-label="全局 AI 输入" placeholder="输入任务或口述内容…" /><div className="composer-tools"><span>⌕</span><span>✓</span><div className="push-right"><button aria-label="语音输入">◉</button><button className="send-circle" aria-label="发送 AI 任务">➤</button></div></div></div>
+          <div><span className="ai-orb"><Sparkles size={18} /></span><strong>Asale AI</strong><span>跨客户查询、总结进度或执行销售任务</span></div>
+          <div className="global-composer"><textarea aria-label="全局 AI 输入" placeholder="输入任务或口述内容…" /><div className="composer-tools"><button aria-label="添加附件"><Paperclip size={18} /></button><button aria-label="快捷任务"><SquareCheckBig size={18} /></button><div className="push-right"><button aria-label="语音输入"><Mic size={18} /></button><button className="send-circle" aria-label="发送 AI 任务"><Send size={17} /></button></div></div></div>
         </section>
       </section>
       <aside className="profile-panel empty" aria-label="客户画像">
         <h2>客户画像</h2>
-        <div className="profile-empty"><span className="empty-avatar">○</span><strong>选择客户后查看画像</strong><p>客户阶段、意向程度、客户价值和关键需求将在这里展示</p></div>
+        <div className="profile-empty"><span className="empty-avatar"><UserRound size={32} /></span><strong>选择客户后查看画像</strong><p>客户阶段、意向程度、客户价值和关键需求将在这里展示</p></div>
       </aside>
     </>
   );
 }
 
-function Summary({ icon, title, value }: { icon: string; title: string; value: string }) {
-  return <article><span className="summary-icon">{icon}</span><div><strong>{title}</strong><p>{value}</p></div></article>;
+function Summary({ icon: Icon, title, value }: { icon: LucideIcon; title: string; value: string }) {
+  return <article><span className="summary-icon"><Icon size={18} strokeWidth={1.8} /></span><div><strong>{title}</strong><p>{value}</p></div></article>;
 }
 
 type WorkspaceProps = {
@@ -466,7 +496,7 @@ function ConversationWorkspace(props: WorkspaceProps) {
   return (
     <>
       <aside className="conversation-list" aria-label="客户会话列表">
-        <div className="conversation-list-header"><h2>客户会话</h2><div><button aria-label="搜索会话">⌕</button><button aria-label="筛选会话">▽</button></div></div>
+        <div className="conversation-list-header"><h2>客户会话</h2><div><button aria-label="搜索会话"><Search size={16} /></button><button aria-label="筛选会话"><SlidersHorizontal size={16} /></button></div></div>
         <div className="conversation-items">
           {props.customers.map((item, index) => (
             <button key={item.id} className={`conversation-item ${item.id === props.activeId ? "selected" : ""}`} onClick={() => props.openCustomer(item.id)}>
@@ -489,7 +519,7 @@ function ConversationWorkspace(props: WorkspaceProps) {
               <div className={`message-line ${message.from}`} key={message.id}>
                 <span className="message-meta">{message.from === "customer" ? customer.name : "我"}　{message.time}</span>
                 <div className="bubble">{message.text}</div>
-                {message.ai && <button className="ai-assisted" onClick={() => props.setNotice("可查看推荐原文、修改内容与推荐依据")}>✦ AI 辅助</button>}
+                {message.ai && <button className="ai-assisted" onClick={() => props.setNotice("可查看推荐原文、修改内容与推荐依据")}><Sparkles size={11} />AI 辅助</button>}
               </div>
             ))}
             <div className="new-divider"><span>以下为新消息</span></div>
@@ -502,7 +532,7 @@ function ConversationWorkspace(props: WorkspaceProps) {
               onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); props.sendMessage(); } }}
               placeholder={`回复${customer.name}…`}
             />
-            <div className="composer-tools"><span>☺</span><span>▧</span><span>⌕</span><button onClick={() => { props.updateDraft(`${props.drafts[customer.id] ?? ""}（语音转写内容）`); props.setNotice("语音已转写，请确认后发送"); }} aria-label="语音输入">♩</button><button className="send-circle push-right" onClick={props.sendMessage} aria-label="发送消息">➤</button></div>
+            <div className="composer-tools"><button aria-label="添加表情"><Smile size={18} /></button><button aria-label="添加图片"><ImageIcon size={18} /></button><button aria-label="添加文件"><Paperclip size={18} /></button><button onClick={() => { props.updateDraft(`${props.drafts[customer.id] ?? ""}（语音转写内容）`); props.setNotice("语音已转写，请确认后发送"); }} aria-label="语音输入"><Mic size={18} /></button><button className="send-circle push-right" onClick={props.sendMessage} aria-label="发送消息"><Send size={17} /></button></div>
             <small>Enter 发送　·　Shift + Enter 换行</small>
           </div>
         </section>
@@ -534,11 +564,11 @@ function AIContent(props: WorkspaceProps) {
         <section className="analysis-pair"><div><span>客户意图</span><strong>{lowConfidence ? "需要补充确认" : "询价并索取产品资料"}</strong></div><div><span>客户价值</span><strong>{lowConfidence ? "暂不判断" : `${customer.intent}价值`}</strong></div></section>
         <section className="reply-card"><h3>{lowConfidence ? "澄清式话术" : "主推荐话术"}</h3><p>{lowConfidence ? "为了更准确地为您准备方案，想先确认一下具体采购品类、预计用量和期望沟通时间，可以吗？" : "可以的。根据您用于高端茶饮的需求，我建议先了解细度、色泽和风味偏好，再为您匹配合适规格。我可以同时发送规格、起订量和交付周期供您参考。"}</p><button className="primary-button" onClick={() => props.insertReply()}>插入输入框</button></section>
         {props.insertChoice && <section className="insert-choice"><strong>输入框已有内容</strong><p>请选择如何插入推荐话术</p><div><button onClick={() => props.insertReply("replace")}>替换</button><button onClick={() => props.insertReply("append")}>追加</button><button onClick={() => props.setInsertChoice(false)}>取消</button></div></section>}
-        {!lowConfidence && <button className="alternative-row">查看 2 条备选话术 <span>⌄</span></button>}
+        {!lowConfidence && <button className="alternative-row">查看 2 条备选话术 <ChevronDown size={15} /></button>}
         <section className="evidence"><h3>推荐依据</h3><ul><li>明确采购场景</li><li>主动询问规格与报价</li><li>关注交付能力</li></ul></section>
         <section className="task-card"><h3>下一步任务建议</h3><p>发送资料后，明天下午跟进</p><div><button className="primary-button" onClick={() => props.setNotice("任务已确认创建")}>确认</button><button onClick={() => props.setNotice("可在任务页修改时间和内容")}>编辑</button></div></section>
       </div>
-      <div className="ai-composer"><textarea value={props.aiPrompt} onChange={(event) => props.setAiPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); props.setNotice("AI 任务已提交"); props.setAiPrompt(""); } }} placeholder="向 AI 提问或下达任务…" aria-label="AI 指令输入" /><div><button onClick={() => { props.setAiPrompt(`${props.aiPrompt}（语音转写内容）`); props.setNotice("语音已转写，请确认后提交"); }} aria-label="AI 语音输入">♩</button><button className="send-circle" onClick={() => { props.setNotice("AI 任务已提交"); props.setAiPrompt(""); }} aria-label="发送 AI 任务">➤</button></div></div>
+      <div className="ai-composer"><textarea value={props.aiPrompt} onChange={(event) => props.setAiPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); props.setNotice("AI 任务已提交"); props.setAiPrompt(""); } }} placeholder="向 AI 提问或下达任务…" aria-label="AI 指令输入" /><div><button onClick={() => { props.setAiPrompt(`${props.aiPrompt}（语音转写内容）`); props.setNotice("语音已转写，请确认后提交"); }} aria-label="AI 语音输入"><Mic size={17} /></button><button className="send-circle" onClick={() => { props.setNotice("AI 任务已提交"); props.setAiPrompt(""); }} aria-label="发送 AI 任务"><Send size={16} /></button></div></div>
     </>
   );
 }
@@ -551,7 +581,7 @@ function EndProcessing(props: WorkspaceProps) {
   ];
   return (
     <div className="end-panel">
-      <header><div><h2>结束本次处理</h2><span>确认后写入本次跟进记录</span></div><button onClick={() => props.setEnding(false)} aria-label="关闭">×</button></header>
+      <header><div><h2>结束本次处理</h2><span>确认后写入本次跟进记录</span></div><button onClick={() => props.setEnding(false)} aria-label="关闭"><X size={17} /></button></header>
       <div className="end-scroll">
         <label><strong>沟通总结</strong><textarea value={props.summary} onChange={(event) => props.setSummary(event.target.value)} /></label>
         <section className="update-section"><h3>客户数据更新建议</h3>{suggestions.map(([key, label, before, after]) => <article key={key}><div><span>{label}</span><p>{before} <b>→</b> {after}</p></div><div><button className={props.decisions[key] === "accept" ? "selected" : ""} onClick={() => props.setDecisions((current) => ({ ...current, [key]: "accept" }))}>接受</button><button className={props.decisions[key] === "reject" ? "selected" : ""} onClick={() => props.setDecisions((current) => ({ ...current, [key]: "reject" }))}>拒绝</button></div></article>)}</section>
@@ -578,7 +608,7 @@ function ProfilePanel({ customer, detailsOpen, setDetailsOpen }: { customer: Cus
       <div className="profile-identity"><b className="avatar large">{customer.initial}</b><div><strong>{customer.name}</strong><span>{customer.company}</span></div></div>
       <div className="profile-rows">{rows.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
       <button className="full-profile" onClick={() => setDetailsOpen(true)}>查看完整资料</button>
-      {detailsOpen && <div className="details-drawer"><header><div><span>客户详情</span><h2>{customer.name}</h2></div><button onClick={() => setDetailsOpen(false)}>×</button></header><section><h3>联系方式</h3><p>企业微信已连接</p><h3>客户画像</h3><p>{customer.coreNeed}，重点关注{customer.concern}。</p><h3>历史跟进</h3><p>最近互动：{customer.lastInteraction}</p><h3>购买记录</h3><p>暂无成交记录</p><h3>关联商机</h3><p>{customer.name} · 年度采购</p><h3>文件资料</h3><p>产品介绍.pdf　规格说明.xlsx</p></section></div>}
+      {detailsOpen && <div className="details-drawer"><header><div><span>客户详情</span><h2>{customer.name}</h2></div><button onClick={() => setDetailsOpen(false)} aria-label="关闭客户详情"><X size={18} /></button></header><section><h3>联系方式</h3><p>企业微信已连接</p><h3>客户画像</h3><p>{customer.coreNeed}，重点关注{customer.concern}。</p><h3>历史跟进</h3><p>最近互动：{customer.lastInteraction}</p><h3>购买记录</h3><p>暂无成交记录</p><h3>关联商机</h3><p>{customer.name} · 年度采购</p><h3>文件资料</h3><p>产品介绍.pdf　规格说明.xlsx</p></section></div>}
     </aside>
   );
 }
