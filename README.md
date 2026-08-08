@@ -15,9 +15,13 @@
 
 当前版本使用脱敏演示数据，尚未连接真实企业微信接口。
 
+## 在线预览
+
+[https://asale-henna.vercel.app](https://asale-henna.vercel.app)
+
 ## 本地运行
 
-需要 Node.js `>=22.13.0`。
+需要 Node.js `22.x`。
 
 ```bash
 npm install
