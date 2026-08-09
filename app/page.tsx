@@ -1,36 +1,36 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowLeft,
   ArrowRight,
-  Boxes,
-  CalendarDays,
   ChevronDown,
-  CircleUserRound,
   ClipboardCheck,
   Clock3,
   FileText,
   Image as ImageIcon,
-  MessageSquare,
   Mic,
-  PanelLeftClose,
-  PanelLeftOpen,
   Paperclip,
-  Plus,
   Search,
   Send,
   SlidersHorizontal,
   Smile,
   Sparkles,
-  SquareCheckBig,
   UserRound,
-  Users,
   X,
   type LucideIcon,
 } from "lucide-react";
+import { GlobalNav } from "./components/global-nav";
+import { StageBadge, UnreadBadge } from "./components/status-badges";
 import { initialCustomers, type Customer, type Message } from "./demo-data";
 
 type AutomationMode = "auto" | "assist" | "manual";
+type CustomerFilterState = {
+  intent: "全部" | Customer["intent"];
+  stage: "全部" | string;
+  aiState: "全部" | Customer["aiState"];
+};
 
 const automationModes: Array<{ id: AutomationMode; label: string; shortLabel: string }> = [
   { id: "auto", label: "AI 全自动", shortLabel: "全自动" },
@@ -45,14 +45,6 @@ function suggestedReply(customer: Customer) {
   return `可以的。根据您对“${customer.coreNeed}”的需求，我建议先确认${customer.concern}，再为您匹配合适方案。我也可以同步发送相关资料供您参考。`;
 }
 
-const navItems: Array<{ label: string; icon: LucideIcon }> = [
-  { label: "消息", icon: MessageSquare },
-  { label: "客户", icon: Users },
-  { label: "任务", icon: SquareCheckBig },
-  { label: "日程", icon: CalendarDays },
-  { label: "业务工具", icon: Boxes },
-];
-
 export default function Home() {
   const [customers, setCustomers] = useState(initialCustomers);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -62,6 +54,8 @@ export default function Home() {
     Object.fromEntries(initialCustomers.map((customer) => [customer.id, customer.messages])),
   );
   const [query, setQuery] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filters, setFilters] = useState<CustomerFilterState>({ intent: "全部", stage: "全部", aiState: "全部" });
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [chatRatio, setChatRatio] = useState(60);
@@ -169,7 +163,10 @@ export default function Home() {
   }, [autoReplyCustomer]);
 
   const filteredCustomers = customers.filter((customer) =>
-    `${customer.name}${customer.company}${customer.latest}`.includes(query.trim()),
+    `${customer.name}${customer.company}${customer.latest}`.includes(query.trim())
+      && (filters.intent === "全部" || customer.intent === filters.intent)
+      && (filters.stage === "全部" || customer.stage === filters.stage)
+      && (filters.aiState === "全部" || customer.aiState === filters.aiState),
   );
 
   function openCustomer(id: string) {
@@ -247,26 +244,12 @@ export default function Home() {
 
   return (
     <main className={`app-shell ${activeCustomer ? "conversation-mode" : "overview-mode"} ${navExpanded ? "nav-expanded" : "nav-collapsed"}`}>
-      <aside className="global-nav" aria-label="全局导航">
-        <div className="brand-block">
-          <strong>{navExpanded ? "Asale" : "A"}</strong>
-          {navExpanded && <><span>销售辅助系统</span><small>示例企业</small></>}
-        </div>
-        {navExpanded && <button className="new-chat" onClick={() => setActiveId(null)}><Plus size={17} /> 新对话</button>}
-        <nav>
-          {navItems.map(({ label, icon: Icon }) => (
-            <button key={label} className={label === "消息" ? "active" : ""} aria-label={label} title={label}>
-              <span className="nav-icon"><Icon size={18} strokeWidth={1.8} /></span>{navExpanded && <span>{label}</span>}
-            </button>
-          ))}
-        </nav>
-        <div className="nav-bottom">
-          <button aria-label="我的" title="我的"><span className="nav-icon"><CircleUserRound size={18} /></span>{navExpanded && <span>我的</span>}</button>
-          <button aria-label={navExpanded ? "收起导航" : "展开导航"} onClick={() => setNavExpanded((value) => !value)}>
-            <span className="nav-icon">{navExpanded ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}</span>{navExpanded && <span>收起</span>}
-          </button>
-        </div>
-      </aside>
+      <GlobalNav
+        expanded={navExpanded}
+        active="messages"
+        onToggle={() => setNavExpanded((value) => !value)}
+        onNewConversation={() => { setActiveId(null); setNavExpanded(true); }}
+      />
 
       {activeCustomer ? (
         <ConversationWorkspace
@@ -290,6 +273,7 @@ export default function Home() {
           startResize={startResize}
           detailsOpen={detailsOpen}
           setDetailsOpen={setDetailsOpen}
+          returnToOverview={() => { setActiveId(null); setNavExpanded(true); }}
         />
       ) : (
         <Overview
@@ -297,11 +281,14 @@ export default function Home() {
           openCustomer={openCustomer}
           query={query}
           setQuery={setQuery}
+          filterCount={[filters.intent, filters.stage, filters.aiState].filter((value) => value !== "全部").length}
+          openFilters={() => setFiltersOpen(true)}
           setNotice={setNotice}
         />
       )}
 
       {notice && <div className="toast" role="status">{notice}</div>}
+      {filtersOpen && <FilterDrawer value={filters} onChange={setFilters} onClose={() => setFiltersOpen(false)} />}
     </main>
   );
 }
@@ -311,12 +298,16 @@ function Overview({
   openCustomer,
   query,
   setQuery,
+  filterCount,
+  openFilters,
   setNotice,
 }: {
   customers: Customer[];
   openCustomer: (id: string) => void;
   query: string;
   setQuery: (value: string) => void;
+  filterCount: number;
+  openFilters: () => void;
   setNotice: (value: string) => void;
 }) {
   const [globalPrompt, setGlobalPrompt] = useState("");
@@ -373,7 +364,7 @@ function Overview({
             <div><h2>待回复客户</h2><span>{customers.length} 位客户等待处理</span></div>
             <div className="list-actions">
               <label className="search-box"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索客户" /></label>
-              <button className="filter-button"><SlidersHorizontal size={14} />筛选</button>
+              <button className={`filter-button ${filterCount ? "active" : ""}`} onClick={openFilters}><SlidersHorizontal size={14} />{filterCount ? `已筛选 ${filterCount}` : "筛选"}</button>
             </div>
           </div>
           <div className="customer-queue" aria-label="待回复客户">
@@ -385,7 +376,7 @@ function Overview({
                 <button className="priority-main" onClick={() => openCustomer(priorityCustomer.id)} aria-label={`跟进${priorityCustomer.name}`}>
                   <span className="priority-avatar avatar">{priorityCustomer.initial}</span>
                   <span className="priority-copy">
-                    <span className="customer-title-line"><strong>{priorityCustomer.name}</strong><em className="priority-badge">优先</em>{priorityCustomer.hasNewMessage && <em className="new-message-badge">新消息</em>}{priorityCustomer.unread > 0 && <i>{priorityCustomer.unread}</i>}</span>
+                    <span className="customer-title-line"><strong>{priorityCustomer.name}</strong><em className="priority-badge">优先</em><UnreadBadge count={priorityCustomer.unread} dot={priorityCustomer.hasNewMessage && priorityCustomer.unread === 0} /></span>
                     <span className="customer-latest">{priorityCustomer.latest}</span>
                   </span>
                   <span className="customer-status-stack">
@@ -403,7 +394,7 @@ function Overview({
             )}
             {customers.slice(1).map((customer) => (
               <button className="compact-customer" key={customer.id} onClick={() => openCustomer(customer.id)}>
-                <span className="customer-cell"><b className="avatar small">{customer.initial}</b><span><strong>{customer.name}{customer.hasNewMessage && <em className="new-message-badge compact">新消息</em>}</strong><small>{customer.latest}</small></span>{customer.unread > 0 && <i>{customer.unread}</i>}</span>
+                <span className="customer-cell"><b className="avatar small">{customer.initial}</b><span><strong>{customer.name}</strong><small>{customer.latest}</small></span><UnreadBadge count={customer.unread} dot={customer.hasNewMessage && customer.unread === 0} /></span>
                 <span className="compact-meta"><IntentBadge intent={customer.intent} /><em>价值 {customer.value}</em><TimeStatus minutes={customer.waitMinutes} label={customer.wait} /><AnalysisBadge state={customer.aiState} /></span>
                 <span className="row-actions"><em>查看画像</em><em>生成建议</em><strong>立即跟进 <ArrowRight size={13} /></strong></span>
               </button>
@@ -433,6 +424,19 @@ function Summary({ icon: Icon, title, value, detail, variant = "default" }: { ic
   return <article className={`metric-card ${variant}`}><div><span className="summary-icon"><Icon size={18} strokeWidth={1.8} /></span><strong>{title}</strong></div><p>{value}</p><small>{detail}</small></article>;
 }
 
+function FilterDrawer({ value, onChange, onClose }: { value: CustomerFilterState; onChange: (value: CustomerFilterState) => void; onClose: () => void }) {
+  return <div className="drawer-backdrop">
+    <button className="backdrop-dismiss" onClick={onClose} aria-label="关闭筛选" />
+    <aside className="filter-drawer" aria-label="筛选待回复客户">
+      <header><div><span>待回复客户</span><h2>筛选条件</h2></div><button onClick={onClose} aria-label="关闭筛选"><X size={18} /></button></header>
+      <section><h3>意向程度</h3><div className="filter-options">{(["全部", "高", "中", "低"] as const).map((option) => <button key={option} className={value.intent === option ? "selected" : ""} onClick={() => onChange({ ...value, intent: option })}>{option === "全部" ? "全部客户" : `${option}意向`}</button>)}</div></section>
+      <section><h3>客户阶段</h3><div className="filter-options">{["全部", "初步接触", "需求确认", "方案沟通", "样品测试"].map((option) => <button key={option} className={value.stage === option ? "selected" : ""} onClick={() => onChange({ ...value, stage: option })}>{option === "全部" ? "全部阶段" : option}</button>)}</div></section>
+      <section><h3>分析状态</h3><div className="filter-options">{(["全部", "话术就绪", "分析完成", "正在分析", "待分析"] as const).map((option) => <button key={option} className={value.aiState === option ? "selected" : ""} onClick={() => onChange({ ...value, aiState: option })}>{option === "全部" ? "全部状态" : option}</button>)}</div></section>
+      <footer><button onClick={() => onChange({ intent: "全部", stage: "全部", aiState: "全部" })}>重置</button><button className="primary-button" onClick={onClose}>应用筛选</button></footer>
+    </aside>
+  </div>;
+}
+
 function IntentBadge({ intent }: { intent: Customer["intent"] }) {
   return <em className={`intent-badge intent-${intent === "高" ? "high" : intent === "中" ? "medium" : "low"}`}>{intent}意向</em>;
 }
@@ -454,7 +458,7 @@ function OverviewProfile({ customer, openCustomer }: { customer: Customer | null
   return (
     <aside className="profile-panel overview-profile" aria-label="今日重点客户画像">
       <div className="profile-heading"><div><span>客户画像</span><h2>今日重点客户</h2></div><Sparkles size={18} /></div>
-      <div className="profile-hero"><b className="avatar large">{customer.initial}</b><div><strong>{customer.name}</strong><span>{customer.intent}意向 · {customer.stage}</span></div></div>
+      <div className="profile-hero"><b className="avatar large">{customer.initial}</b><div><strong>{customer.name}</strong><span>{customer.intent}意向</span><StageBadge stage={customer.stage} /></div></div>
       <section className="score-section"><span>成交评分</span><strong>{customer.confidence}</strong><div><i style={{ width: `${customer.confidence}%` }} /></div></section>
       <section className="profile-section"><span>核心需求</span><p>{customer.coreNeed}</p></section>
       <section className="profile-section"><span>最近动态</span><p>{customer.wait}前提出：{customer.latest}</p></section>
@@ -486,6 +490,7 @@ type WorkspaceProps = {
   startResize: (event: React.PointerEvent<HTMLButtonElement>) => void;
   detailsOpen: boolean;
   setDetailsOpen: (value: boolean) => void;
+  returnToOverview: () => void;
 };
 
 function ConversationWorkspace(props: WorkspaceProps) {
@@ -493,13 +498,13 @@ function ConversationWorkspace(props: WorkspaceProps) {
   return (
     <>
       <aside className="conversation-list" aria-label="客户会话列表">
-        <div className="conversation-list-header"><h2>客户会话</h2><div><button aria-label="搜索会话"><Search size={16} /></button><button aria-label="筛选会话"><SlidersHorizontal size={16} /></button></div></div>
+        <div className="conversation-list-header"><h2>客户会话</h2><div><Link href="/search" aria-label="搜索会话"><Search size={16} /></Link><Link href="/customers?filter=1" aria-label="筛选客户"><SlidersHorizontal size={16} /></Link></div></div>
         <div className="conversation-items">
           {props.customers.map((item) => (
             <button key={item.id} className={`conversation-item ${item.id === props.activeId ? "selected" : ""}`} onClick={() => props.openCustomer(item.id)}>
               <b className="avatar">{item.initial}</b>
-              <span><strong>{item.name}{item.hasNewMessage && <i className="conversation-new">新</i>}</strong><small>{props.drafts[item.id] ? <i>草稿</i> : item.latest}</small><em>{item.wait}</em></span>
-              {item.unread > 0 && <u>{item.unread}</u>}
+              <span><strong>{item.name}</strong><small>{props.drafts[item.id] ? <i>草稿</i> : item.latest}</small><em>{item.wait}</em></span>
+              <UnreadBadge count={item.unread} dot={item.hasNewMessage && item.unread === 0} />
             </button>
           ))}
         </div>
@@ -508,7 +513,7 @@ function ConversationWorkspace(props: WorkspaceProps) {
       <div className="core-split" style={{ "--chat-ratio": `${props.chatRatio}%` } as React.CSSProperties}>
         <section className="chat-panel" aria-label="当前客户对话">
           <header className="chat-header">
-            <div><h1>{customer.name}</h1><p>{customer.company} <span className="online-dot" /> 在线</p><em>{customer.stage}</em></div>
+            <div className="chat-header-main"><button className="back-workbench" onClick={props.returnToOverview}><ArrowLeft size={15} />返回工作台</button><div><h1>{customer.name}</h1><p>{customer.company} <span className="online-dot" /> 在线</p><StageBadge stage={customer.stage} /></div></div>
             <span className="auto-recording"><Sparkles size={13} />AI 自动记录中</span>
           </header>
           <div className="message-scroll">
@@ -600,7 +605,7 @@ function ProfilePanel({ customer, detailsOpen, setDetailsOpen }: { customer: Cus
     <aside className="profile-panel" aria-label="客户画像摘要">
       <h2>客户画像</h2>
       <div className="profile-identity"><b className="avatar large">{customer.initial}</b><div><strong>{customer.name}</strong><span>{customer.company}</span></div></div>
-      <div className="profile-rows">{rows.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
+      <div className="profile-rows">{rows.map(([label, value]) => <div key={label}><span>{label}</span>{label === "客户阶段" ? <StageBadge stage={value} /> : <strong>{value}</strong>}</div>)}</div>
       <button className="full-profile" onClick={() => setDetailsOpen(true)}>查看完整资料</button>
       {detailsOpen && <div className="details-drawer"><header><div><span>客户详情</span><h2>{customer.name}</h2></div><button onClick={() => setDetailsOpen(false)} aria-label="关闭客户详情"><X size={18} /></button></header><section><h3>联系方式</h3><p>企业微信已连接</p><h3>客户画像</h3><p>{customer.coreNeed}，重点关注{customer.concern}。</p><h3>历史跟进</h3><p>最近互动：{customer.lastInteraction}</p><h3>购买记录</h3><p>暂无成交记录</p><h3>关联商机</h3><p>{customer.name} · 年度采购</p><h3>文件资料</h3><p>产品介绍.pdf · 规格说明.xlsx</p></section></div>}
     </aside>
