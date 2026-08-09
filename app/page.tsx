@@ -2,17 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Bot,
+  ArrowRight,
   Boxes,
   CalendarDays,
-  Check,
   ChevronDown,
   CircleUserRound,
   ClipboardCheck,
   Clock3,
   FileText,
   Image as ImageIcon,
-  Lightbulb,
   MessageSquare,
   Mic,
   PanelLeftClose,
@@ -31,141 +29,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-
-type Message = {
-  id: string;
-  from: "customer" | "sales";
-  text: string;
-  time: string;
-  ai?: boolean;
-};
-
-type Customer = {
-  id: string;
-  initial: string;
-  name: string;
-  company: string;
-  latest: string;
-  wait: string;
-  unread: number;
-  stage: string;
-  intent: string;
-  value: string;
-  aiState: string;
-  confidence: number;
-  coreNeed: string;
-  concern: string;
-  lastInteraction: string;
-  nextStep: string;
-  messages: Message[];
-};
-
-const initialCustomers: Customer[] = [
-  {
-    id: "shanlan",
-    initial: "山",
-    name: "山岚茶饮",
-    company: "山岚食品有限公司",
-    latest: "想了解抹茶粉规格和报价",
-    wait: "3 分钟",
-    unread: 1,
-    stage: "需求确认",
-    intent: "高",
-    value: "A",
-    aiState: "话术就绪",
-    confidence: 88,
-    coreNeed: "高端茶饮用抹茶粉",
-    concern: "规格、起订量、交付周期",
-    lastInteraction: "今天 09:12",
-    nextStep: "发送产品资料并确认用量",
-    messages: [
-      { id: "s1", from: "customer", text: "你好，我们想了解你们抹茶粉的规格和报价，可以发一份资料吗？", time: "09:12" },
-      { id: "s2", from: "sales", text: "可以的，我先了解一下您主要用于哪类产品？", time: "09:13", ai: true },
-      { id: "s3", from: "customer", text: "主要用于高端茶饮，也想了解起订量和交付周期。", time: "09:14" },
-    ],
-  },
-  {
-    id: "xinhe",
-    initial: "新",
-    name: "新禾食品",
-    company: "新禾食品有限公司",
-    latest: "需要定制茶基底应用方案",
-    wait: "8 分钟",
-    unread: 2,
-    stage: "方案沟通",
-    intent: "高",
-    value: "A",
-    aiState: "分析完成",
-    confidence: 82,
-    coreNeed: "定制茶基底应用方案",
-    concern: "风味稳定性、配方适配",
-    lastInteraction: "今天 09:07",
-    nextStep: "确认应用场景与预计用量",
-    messages: [
-      { id: "x1", from: "customer", text: "我们准备开发一款新茶饮，需要定制茶基底的应用方案。", time: "09:06" },
-      { id: "x2", from: "customer", text: "你们能协助做配方适配吗？", time: "09:07" },
-    ],
-  },
-  {
-    id: "qingyuan",
-    initial: "清",
-    name: "清原饮品",
-    company: "清原饮品有限公司",
-    latest: "样品测试后还有两个问题",
-    wait: "12 分钟",
-    unread: 1,
-    stage: "样品测试",
-    intent: "中",
-    value: "B",
-    aiState: "话术就绪",
-    confidence: 71,
-    coreNeed: "茶浓缩液样品优化",
-    concern: "稳定性、储存条件",
-    lastInteraction: "今天 09:03",
-    nextStep: "补充确认测试条件",
-    messages: [
-      { id: "q1", from: "customer", text: "样品测试后还有两个问题，常温稳定性和储存条件需要再确认。", time: "09:03" },
-    ],
-  },
-  {
-    id: "yunqi",
-    initial: "云",
-    name: "云栖食品",
-    company: "云栖食品有限公司",
-    latest: "请发最新产品资料",
-    wait: "18 分钟",
-    unread: 0,
-    stage: "初步接触",
-    intent: "中",
-    value: "B",
-    aiState: "正在分析",
-    confidence: 79,
-    coreNeed: "获取最新产品资料",
-    concern: "产品覆盖范围、价格",
-    lastInteraction: "今天 08:57",
-    nextStep: "发送最新产品目录",
-    messages: [{ id: "y1", from: "customer", text: "方便发一下你们最新的产品资料吗？", time: "08:57" }],
-  },
-  {
-    id: "yuanchuan",
-    initial: "远",
-    name: "远川贸易",
-    company: "远川贸易有限公司",
-    latest: "下周可以安排进一步沟通",
-    wait: "25 分钟",
-    unread: 0,
-    stage: "初步接触",
-    intent: "低",
-    value: "C",
-    aiState: "待分析",
-    confidence: 68,
-    coreNeed: "确认后续合作可能",
-    concern: "需求信息不足",
-    lastInteraction: "今天 08:50",
-    nextStep: "确认沟通时间与采购范围",
-    messages: [{ id: "r1", from: "customer", text: "下周可以安排进一步沟通，具体需求到时再说。", time: "08:50" }],
-  },
-];
+import { initialCustomers, type Customer, type Message } from "./demo-data";
 
 const navItems: Array<{ label: string; icon: LucideIcon }> = [
   { label: "消息", icon: MessageSquare },
@@ -198,7 +62,6 @@ export default function Home() {
   });
   const [taskText, setTaskText] = useState("发送资料后，明天下午跟进");
   const [aiPrompt, setAiPrompt] = useState("");
-  const splitRef = useRef<HTMLDivElement>(null);
   const reminderRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeCustomer = useMemo(
@@ -208,6 +71,8 @@ export default function Home() {
 
   useEffect(() => {
     const stored = window.localStorage.getItem("asale-chat-ratio");
+    // Restore the user's last width preference after the client has mounted.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored) setChatRatio(Number(stored));
   }, []);
 
@@ -280,6 +145,9 @@ export default function Home() {
       setNotice("存在未发送草稿，请先发送或删除后再结束处理");
       return;
     }
+    setSummary(`客户本次主要沟通“${activeCustomer.latest}”，核心需求为${activeCustomer.coreNeed}，重点关注${activeCustomer.concern}。`);
+    setTaskText(`${activeCustomer.nextStep}，明天下午跟进`);
+    setDecisions({ stage: null, intent: null, value: null });
     setEnding(true);
   }
 
@@ -297,7 +165,7 @@ export default function Home() {
 
   function startResize(event: React.PointerEvent<HTMLButtonElement>) {
     event.preventDefault();
-    const container = splitRef.current;
+    const container = event.currentTarget.parentElement;
     if (!container) return;
     const rect = container.getBoundingClientRect();
     let latestRatio = chatRatio;
@@ -364,7 +232,6 @@ export default function Home() {
           aiPrompt={aiPrompt}
           setAiPrompt={setAiPrompt}
           setNotice={setNotice}
-          splitRef={splitRef}
           chatRatio={chatRatio}
           startResize={startResize}
           detailsOpen={detailsOpen}
@@ -404,19 +271,55 @@ function Overview({
   setListUpdated: (value: boolean) => void;
   setNotice: (value: string) => void;
 }) {
+  const [globalPrompt, setGlobalPrompt] = useState("");
+  const priorityCustomer = customers[0] ?? null;
+  const highIntentCustomers = customers.filter((customer) => customer.intent === "高");
+
+  function submitGlobalPrompt() {
+    if (!globalPrompt.trim()) return;
+    setNotice("AI 任务已提交，正在整理结果");
+    setGlobalPrompt("");
+  }
+
+  function applyQuickPrompt(prompt: string) {
+    setGlobalPrompt(prompt);
+    setNotice("快捷指令已填入，可继续补充");
+  }
+
   return (
     <>
       <section className="overview" aria-label="消息总览">
         <header className="overview-header">
-          <div><p>消息</p><h1>早上好，今天先处理这些</h1></div>
-          <span className="demo-tag">演示数据</span>
+          <div>
+            <p className="eyebrow">消息</p>
+            <h1><span>早上好，</span>今天有 {customers.length} 位客户需要处理</h1>
+            <p className="header-subtitle">其中 <strong>{highIntentCustomers.length} 位高意向客户</strong>值得优先跟进</p>
+          </div>
+          <button className="header-cta" disabled={!priorityCustomer} onClick={() => priorityCustomer && openCustomer(priorityCustomer.id)}>
+            开始今日任务 <ArrowRight size={16} />
+          </button>
         </header>
-        <section className="summary-strip" aria-label="工作摘要">
-          <Summary icon={FileText} title="昨日简报" value="已回复 8 位客户" />
-          <Summary icon={ClipboardCheck} title="今日任务" value="5" />
-          <Summary icon={Clock3} title="即将日程" value="2" />
-          <Summary icon={Lightbulb} title="跟进建议" value="3" />
+
+        <section className="today-focus" aria-label="今日重点">
+          <span className="focus-icon"><Sparkles size={18} /></span>
+          <div>
+            <p>今日重点</p>
+            <h2>优先完成 {highIntentCustomers.length} 位高意向客户跟进</h2>
+            <span>AI 已根据客户价值、销售阶段和最近互动完成优先级排序</span>
+          </div>
+          <div className="focus-action">
+            <strong>{highIntentCustomers.map((customer) => customer.name).join(" · ") || "暂无高意向客户"}</strong>
+            <button onClick={() => setNotice("已展示全部高意向客户")}>查看全部 <ArrowRight size={14} /></button>
+          </div>
         </section>
+
+        <section className="summary-strip" aria-label="工作摘要">
+          <Summary icon={ClipboardCheck} title="今日任务" value="5" detail="2 项建议优先处理" variant="primary" />
+          <Summary icon={Sparkles} title="AI 跟进建议" value="3" detail="基于客户最新状态生成" variant="ai" />
+          <Summary icon={Clock3} title="即将日程" value="2" detail="最近 2 小时" />
+          <Summary icon={FileText} title="昨日简报" value="8" detail="昨日已触达客户" variant="muted" />
+        </section>
+
         <section className="pending-panel">
           <div className="panel-title-row">
             <div><h2>待回复客户</h2><span>{customers.length} 位客户等待处理</span></div>
@@ -426,37 +329,93 @@ function Overview({
               <button className="filter-button"><SlidersHorizontal size={14} />筛选</button>
             </div>
           </div>
-          <div className="customer-table" role="table" aria-label="待回复客户">
-            <div className="customer-row table-head" role="row">
-              <span>客户</span><span>最新消息</span><span>等待时间</span><span>意向</span><span>价值</span><span>AI 状态</span>
-            </div>
-            {customers.map((customer) => (
-              <button className="customer-row" role="row" key={customer.id} onClick={() => openCustomer(customer.id)}>
-                <span className="customer-cell"><b className="avatar small">{customer.initial}</b><strong>{customer.name}</strong>{customer.unread > 0 && <i>{customer.unread}</i>}</span>
-                <span className="latest-cell">{customer.latest}</span>
-                <span className="wait-cell">{customer.wait}</span>
-                <span><em className="soft-tag">{customer.intent}意向</em></span>
-                <span><em className="value-tag">{customer.value}</em></span>
-                <span><em className="soft-tag">{customer.aiState}</em></span>
+          <div className="customer-queue" aria-label="待回复客户">
+            {!priorityCustomer && (
+              <div className="queue-empty"><strong>暂无待处理客户</strong><span>今天所有客户都已经处理完成 🎉</span><button>查看全部客户</button></div>
+            )}
+            {priorityCustomer && (
+              <article className="priority-customer">
+                <button className="priority-main" onClick={() => openCustomer(priorityCustomer.id)} aria-label={`跟进${priorityCustomer.name}`}>
+                  <span className="priority-avatar avatar">{priorityCustomer.initial}</span>
+                  <span className="priority-copy">
+                    <span className="customer-title-line"><strong>{priorityCustomer.name}</strong><em className="priority-badge">优先</em>{priorityCustomer.unread > 0 && <i>{priorityCustomer.unread}</i>}</span>
+                    <span className="customer-latest">{priorityCustomer.latest}</span>
+                  </span>
+                  <span className="customer-status-stack">
+                    <IntentBadge intent={priorityCustomer.intent} />
+                    <TimeStatus minutes={priorityCustomer.waitMinutes} label={priorityCustomer.wait} />
+                  </span>
+                </button>
+                <div className="priority-advice">
+                  <span><Sparkles size={15} /> Advisor 建议</span>
+                  <p>{priorityCustomer.aiSuggestion}</p>
+                  <div><em>阶段：{priorityCustomer.stage}</em><em>客户价值：{priorityCustomer.value}</em></div>
+                  <button onClick={() => openCustomer(priorityCustomer.id)}>立即跟进 <ArrowRight size={15} /></button>
+                </div>
+              </article>
+            )}
+            {customers.slice(1).map((customer) => (
+              <button className="compact-customer" key={customer.id} onClick={() => openCustomer(customer.id)}>
+                <span className="customer-cell"><b className="avatar small">{customer.initial}</b><span><strong>{customer.name}</strong><small>{customer.latest}</small></span>{customer.unread > 0 && <i>{customer.unread}</i>}</span>
+                <span className="compact-meta"><IntentBadge intent={customer.intent} /><em>价值 {customer.value}</em><TimeStatus minutes={customer.waitMinutes} label={customer.wait} /><AnalysisBadge state={customer.aiState} /></span>
+                <span className="row-actions"><em>查看画像</em><em>生成建议</em><strong>立即跟进 <ArrowRight size={13} /></strong></span>
               </button>
             ))}
           </div>
         </section>
+
         <section className="global-ai">
-          <div><span className="ai-orb"><Sparkles size={18} /></span><strong>Asale AI</strong><span>跨客户查询、总结进度或执行销售任务</span></div>
-          <div className="global-composer"><textarea aria-label="全局 AI 输入" placeholder="输入任务或口述内容…" /><div className="composer-tools"><button aria-label="添加附件"><Paperclip size={18} /></button><button aria-label="快捷任务"><SquareCheckBig size={18} /></button><div className="push-right"><button aria-label="语音输入"><Mic size={18} /></button><button className="send-circle" aria-label="发送 AI 任务"><Send size={17} /></button></div></div></div>
+          <div className="global-ai-intro"><span className="ai-orb"><Sparkles size={18} /></span><div><strong>Advisor</strong><span>查询客户、分析机会并执行销售任务</span></div></div>
+          <div className="global-composer">
+            <textarea value={globalPrompt} onChange={(event) => setGlobalPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); submitGlobalPrompt(); } }} aria-label="全局 AI 输入" placeholder="帮我整理今天最值得跟进的客户…" />
+            <div className="composer-tools"><button aria-label="添加附件"><Paperclip size={18} /></button><div className="push-right"><button aria-label="语音输入" onClick={() => setGlobalPrompt(`${globalPrompt}（语音转写内容）`)}><Mic size={18} /></button><button className="send-circle" aria-label="发送 AI 任务" onClick={submitGlobalPrompt}><Send size={17} /></button></div></div>
+          </div>
+          <div className="quick-prompts">
+            <button onClick={() => applyQuickPrompt("请总结今天最值得优先跟进的客户，并说明原因和建议动作。")}>总结重点客户</button>
+            <button onClick={() => applyQuickPrompt("请根据优先客户最近的沟通记录和需求，生成一段合适的跟进话术。")}>生成跟进话术</button>
+            <button onClick={() => applyQuickPrompt("请整理我的今日任务，并按紧急程度排序。")}>查看今日任务</button>
+          </div>
         </section>
       </section>
-      <aside className="profile-panel empty" aria-label="客户画像">
-        <h2>客户画像</h2>
-        <div className="profile-empty"><span className="empty-avatar"><UserRound size={32} /></span><strong>选择客户后查看画像</strong><p>客户阶段、意向程度、客户价值和关键需求将在这里展示</p></div>
-      </aside>
+      <OverviewProfile customer={priorityCustomer} openCustomer={openCustomer} />
     </>
   );
 }
 
-function Summary({ icon: Icon, title, value }: { icon: LucideIcon; title: string; value: string }) {
-  return <article><span className="summary-icon"><Icon size={18} strokeWidth={1.8} /></span><div><strong>{title}</strong><p>{value}</p></div></article>;
+function Summary({ icon: Icon, title, value, detail, variant = "default" }: { icon: LucideIcon; title: string; value: string; detail: string; variant?: "default" | "primary" | "ai" | "muted" }) {
+  return <article className={`metric-card ${variant}`}><div><span className="summary-icon"><Icon size={18} strokeWidth={1.8} /></span><strong>{title}</strong></div><p>{value}</p><small>{detail}</small></article>;
+}
+
+function IntentBadge({ intent }: { intent: Customer["intent"] }) {
+  return <em className={`intent-badge intent-${intent === "高" ? "high" : intent === "中" ? "medium" : "low"}`}>{intent}意向</em>;
+}
+
+function AnalysisBadge({ state }: { state: Customer["aiState"] }) {
+  return <em className={`analysis-badge ${state === "正在分析" ? "analyzing" : ""}`}>{state === "正在分析" && <span className="mini-spinner" />}{state}</em>;
+}
+
+function TimeStatus({ minutes, label }: { minutes: number; label: string }) {
+  const state = minutes > 20 ? "danger" : minutes >= 10 ? "warning" : "normal";
+  return <em className={`time-status ${state}`}>{label}</em>;
+}
+
+function OverviewProfile({ customer, openCustomer }: { customer: Customer | null; openCustomer: (id: string) => void }) {
+  if (!customer) {
+    return <aside className="profile-panel empty" aria-label="客户画像"><h2>客户画像</h2><div className="profile-empty"><span className="empty-avatar"><UserRound size={30} /></span><strong>暂无客户数据</strong><p>出现待处理客户后，Advisor 会自动展示优先客户画像。</p></div></aside>;
+  }
+
+  return (
+    <aside className="profile-panel overview-profile" aria-label="今日重点客户画像">
+      <div className="profile-heading"><div><span>客户画像</span><h2>今日重点客户</h2></div><Sparkles size={18} /></div>
+      <div className="profile-hero"><b className="avatar large">{customer.initial}</b><div><strong>{customer.name}</strong><span>{customer.intent}意向 · {customer.stage}</span></div></div>
+      <section className="score-section"><span>成交评分</span><strong>{customer.confidence}</strong><div><i style={{ width: `${customer.confidence}%` }} /></div></section>
+      <section className="profile-section"><span>核心需求</span><p>{customer.coreNeed}</p></section>
+      <section className="profile-section"><span>最近动态</span><p>{customer.wait}前提出：{customer.latest}</p></section>
+      <section className="advisor-judgment"><span><Sparkles size={15} /> Advisor 下一步建议</span><p>{customer.aiSuggestion}</p></section>
+      <button className="profile-primary" onClick={() => openCustomer(customer.id)}>立即跟进 <ArrowRight size={15} /></button>
+      <button className="full-profile" onClick={() => openCustomer(customer.id)}>查看完整画像</button>
+    </aside>
+  );
 }
 
 type WorkspaceProps = {
@@ -484,7 +443,6 @@ type WorkspaceProps = {
   aiPrompt: string;
   setAiPrompt: (value: string) => void;
   setNotice: (value: string) => void;
-  splitRef: React.RefObject<HTMLDivElement | null>;
   chatRatio: number;
   startResize: (event: React.PointerEvent<HTMLButtonElement>) => void;
   detailsOpen: boolean;
@@ -508,7 +466,7 @@ function ConversationWorkspace(props: WorkspaceProps) {
         </div>
       </aside>
 
-      <div className="core-split" ref={props.splitRef} style={{ "--chat-ratio": `${props.chatRatio}%` } as React.CSSProperties}>
+      <div className="core-split" style={{ "--chat-ratio": `${props.chatRatio}%` } as React.CSSProperties}>
         <section className="chat-panel" aria-label="当前客户对话">
           <header className="chat-header">
             <div><h1>{customer.name}</h1><p>{customer.company} <span className="online-dot" /> 在线</p><em>{customer.stage}</em></div>
@@ -517,7 +475,7 @@ function ConversationWorkspace(props: WorkspaceProps) {
           <div className="message-scroll">
             {(props.chatMessages[customer.id] ?? []).map((message) => (
               <div className={`message-line ${message.from}`} key={message.id}>
-                <span className="message-meta">{message.from === "customer" ? customer.name : "我"}　{message.time}</span>
+                <span className="message-meta">{message.from === "customer" ? customer.name : "我"} · {message.time}</span>
                 <div className="bubble">{message.text}</div>
                 {message.ai && <button className="ai-assisted" onClick={() => props.setNotice("可查看推荐原文、修改内容与推荐依据")}><Sparkles size={11} />AI 辅助</button>}
               </div>
@@ -533,7 +491,7 @@ function ConversationWorkspace(props: WorkspaceProps) {
               placeholder={`回复${customer.name}…`}
             />
             <div className="composer-tools"><button aria-label="添加表情"><Smile size={18} /></button><button aria-label="添加图片"><ImageIcon size={18} /></button><button aria-label="添加文件"><Paperclip size={18} /></button><button onClick={() => { props.updateDraft(`${props.drafts[customer.id] ?? ""}（语音转写内容）`); props.setNotice("语音已转写，请确认后发送"); }} aria-label="语音输入"><Mic size={18} /></button><button className="send-circle push-right" onClick={props.sendMessage} aria-label="发送消息"><Send size={17} /></button></div>
-            <small>Enter 发送　·　Shift + Enter 换行</small>
+            <small>Enter 发送 · Shift + Enter 换行</small>
           </div>
         </section>
 
@@ -558,7 +516,7 @@ function AIContent(props: WorkspaceProps) {
   const lowConfidence = customer.confidence < 75;
   return (
     <>
-      <header className="ai-header"><div><h2>Asale AI</h2><span>分析完成</span></div><strong className={lowConfidence ? "confidence low" : "confidence"}>可信度 {customer.confidence}</strong></header>
+      <header className="ai-header"><div><h2>Advisor</h2><span>分析完成</span></div><strong className={lowConfidence ? "confidence low" : "confidence"}>可信度 {customer.confidence}</strong></header>
       <div className="ai-scroll">
         {lowConfidence && <section className="uncertainty"><strong>不建议直接参考</strong><p>客户需求范围与采购信息不足，暂时无法准确判断价值。</p><ul><li>缺少具体采购品类</li><li>缺少预计用量</li><li>沟通时间尚未确认</li></ul></section>}
         <section className="analysis-pair"><div><span>客户意图</span><strong>{lowConfidence ? "需要补充确认" : "询价并索取产品资料"}</strong></div><div><span>客户价值</span><strong>{lowConfidence ? "暂不判断" : `${customer.intent}价值`}</strong></div></section>
@@ -608,7 +566,7 @@ function ProfilePanel({ customer, detailsOpen, setDetailsOpen }: { customer: Cus
       <div className="profile-identity"><b className="avatar large">{customer.initial}</b><div><strong>{customer.name}</strong><span>{customer.company}</span></div></div>
       <div className="profile-rows">{rows.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
       <button className="full-profile" onClick={() => setDetailsOpen(true)}>查看完整资料</button>
-      {detailsOpen && <div className="details-drawer"><header><div><span>客户详情</span><h2>{customer.name}</h2></div><button onClick={() => setDetailsOpen(false)} aria-label="关闭客户详情"><X size={18} /></button></header><section><h3>联系方式</h3><p>企业微信已连接</p><h3>客户画像</h3><p>{customer.coreNeed}，重点关注{customer.concern}。</p><h3>历史跟进</h3><p>最近互动：{customer.lastInteraction}</p><h3>购买记录</h3><p>暂无成交记录</p><h3>关联商机</h3><p>{customer.name} · 年度采购</p><h3>文件资料</h3><p>产品介绍.pdf　规格说明.xlsx</p></section></div>}
+      {detailsOpen && <div className="details-drawer"><header><div><span>客户详情</span><h2>{customer.name}</h2></div><button onClick={() => setDetailsOpen(false)} aria-label="关闭客户详情"><X size={18} /></button></header><section><h3>联系方式</h3><p>企业微信已连接</p><h3>客户画像</h3><p>{customer.coreNeed}，重点关注{customer.concern}。</p><h3>历史跟进</h3><p>最近互动：{customer.lastInteraction}</p><h3>购买记录</h3><p>暂无成交记录</p><h3>关联商机</h3><p>{customer.name} · 年度采购</p><h3>文件资料</h3><p>产品介绍.pdf · 规格说明.xlsx</p></section></div>}
     </aside>
   );
 }
