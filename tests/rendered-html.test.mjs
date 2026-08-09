@@ -28,6 +28,7 @@ test("contains the Vercel-ready Asale AI sales workspace", async () => {
   assert.doesNotMatch(page, /插入输入框|结束本次处理|列表有更新/);
   assert.match(demoData, /新禾食品/);
   assert.match(layout, /Asale · 销售辅助系统/);
+  assert.match(layout, /brand\/asale-icon\.png/);
   assert.match(packageJson, /"build": "next build"/);
   assert.match(packageJson, /"next": "16\.2\.6"/);
   assert.doesNotMatch(page, /codex-preview|SkeletonPreview/);
@@ -53,6 +54,7 @@ test("contains complete secondary workspace routes", async () => {
   assert.match(profile, /销售画像|通知设置|AI 偏好|账号与权限/);
   assert.match(profile, /助手名称|asale-assistant-name/);
   assert.match(navigation, /\/customers|\/tasks|\/calendar|\/tools|\/profile|\/search/);
+  assert.match(navigation, /brand\/asale-wordmark\.png|brand\/asale-icon\.png/);
   assert.match(badges, /wechat-unread-value|stage-prominent/);
   assert.match(badges, /99\+/);
 });

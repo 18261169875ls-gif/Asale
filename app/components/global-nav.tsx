@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   Boxes,
@@ -40,7 +41,14 @@ export function GlobalNav({
   return (
     <aside className="global-nav" aria-label="全局导航">
       <div className="brand-block">
-        <strong>{expanded ? "Asale" : "A"}</strong>
+        <Image
+          className={expanded ? "brand-wordmark" : "brand-icon"}
+          src={expanded ? "/brand/asale-wordmark.png" : "/brand/asale-icon.png"}
+          alt="Asale"
+          width={expanded ? 164 : 40}
+          height={expanded ? 58 : 40}
+          priority
+        />
         {expanded && <><span>销售辅助系统</span><small>示例企业</small></>}
       </div>
       {expanded && <Link className="new-chat" href="/" onClick={onNewConversation}><Plus size={17} />新对话</Link>}

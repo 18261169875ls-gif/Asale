@@ -39,11 +39,11 @@ a { color: inherit; text-decoration: none; }
 .global-nav { grid-column: 1; height: 100vh; border-right: 1px solid var(--line); background: #fff; padding: 28px 16px 16px; display: flex; flex-direction: column; align-items: flex-start; overflow: hidden; }
 .nav-collapsed .global-nav { padding: 24px 12px 14px; align-items: center; }
 .brand-block { min-height: 96px; width: 100%; padding: 0 10px; display: flex; flex-direction: column; align-items: flex-start; }
-.brand-block strong { font-size: 28px; line-height: 1; letter-spacing: -1.1px; font-weight: 750; }
-.brand-block span { margin-top: 9px; color: #3f444d; font-size: 13px; }
-.brand-block small { margin-top: 8px; color: var(--faint); font-size: 11px; }
+.brand-wordmark { width: 142px; height: 60px; object-fit: contain; object-position: left center; }
+.brand-icon { width: 40px; height: 40px; object-fit: contain; }
+.brand-block span { margin-top: 5px; color: #3f444d; font-size: 13px; }
+.brand-block small { margin-top: 5px; color: var(--faint); font-size: 11px; }
 .nav-collapsed .brand-block { min-height: 58px; padding: 0; align-items: center; }
-.nav-collapsed .brand-block strong { width: 40px; height: 40px; border-radius: 12px; background: var(--text); color: #fff; display: grid; place-items: center; font-size: 18px; }
 .new-chat { width: 100%; min-height: 42px; margin: 8px 0 20px; border: 1px solid var(--line-strong); border-radius: 10px; background: #fff; padding: 0 13px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background-color 120ms ease, border-color 120ms ease; }
 .new-chat:hover { border-color: #d7dbff; background: var(--primary-lighter); }
 .global-nav nav, .nav-bottom { width: 100%; display: flex; flex-direction: column; gap: 4px; }
