@@ -368,7 +368,7 @@ function Overview({
           <div className="global-ai-intro"><span className="ai-orb"><Sparkles size={18} /></span><div><strong>Advisor</strong><span>查询客户、分析机会并执行销售任务</span></div></div>
           <div className="global-composer">
             <textarea value={globalPrompt} onChange={(event) => setGlobalPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); submitGlobalPrompt(); } }} aria-label="全局 AI 输入" placeholder="帮我整理今天最值得跟进的客户…" />
-            <div className="composer-tools"><button aria-label="添加附件"><Paperclip size={18} /></button><div className="push-right"><button aria-label="语音输入" onClick={() => setGlobalPrompt(`${globalPrompt}（语音转写内容）`)}><Mic size={18} /></button><button className="send-circle" aria-label="发送 AI 任务" onClick={submitGlobalPrompt}><Send size={17} /></button></div></div>
+            <div className="composer-tools"><button aria-label="添加附件"><Paperclip size={18} /></button><div className="composer-end-tools"><button aria-label="语音输入" onClick={() => setGlobalPrompt(`${globalPrompt}（语音转写内容）`)}><Mic size={18} /></button><button className="send-circle" aria-label="发送 AI 任务" onClick={submitGlobalPrompt}><Send size={17} /></button></div></div>
           </div>
           <div className="quick-prompts">
             <button onClick={() => applyQuickPrompt("请总结今天最值得优先跟进的客户，并说明原因和建议动作。")}>总结重点客户</button>
