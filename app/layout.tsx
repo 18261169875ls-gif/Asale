@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Asale · 销售辅助系统",
+  title: "Asale · 信息予你无限，Asale与你重筑未来",
   description: "面向一线销售的实时 AI 客户沟通工作台。",
   icons: {
     icon: [{ url: "/brand/asale-icon.png", type: "image/png" }],

@@ -49,7 +49,7 @@ export function GlobalNav({
           height={expanded ? 58 : 40}
           priority
         />
-        {expanded && <><span>销售辅助系统</span><small>示例企业</small></>}
+        {expanded && <><span>信息予你无限，<br />Asale与你重筑未来</span><small>示例企业</small></>}
       </div>
       {expanded && <Link className="new-chat" href="/" onClick={onNewConversation}><Plus size={17} />新对话</Link>}
       <nav>

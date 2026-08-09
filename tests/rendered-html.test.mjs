@@ -27,7 +27,7 @@ test("contains the Vercel-ready Asale AI sales workspace", async () => {
   assert.match(page, /可信度/);
   assert.doesNotMatch(page, /插入输入框|结束本次处理|列表有更新/);
   assert.match(demoData, /新禾食品/);
-  assert.match(layout, /Asale · 销售辅助系统/);
+  assert.match(layout, /信息予你无限，Asale与你重筑未来/);
   assert.match(layout, /brand\/asale-icon\.png/);
   assert.match(packageJson, /"build": "next build"/);
   assert.match(packageJson, /"next": "16\.2\.6"/);
