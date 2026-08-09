@@ -14,8 +14,12 @@ test("contains the Vercel-ready Asale AI sales workspace", async () => {
   assert.match(page, /今日重点客户/);
   assert.match(page, /Advisor 下一步建议/);
   assert.match(page, /开始今日任务/);
+  assert.match(page, /AI 回复模式/);
+  assert.match(page, /Advisor 可编辑话术/);
+  assert.match(page, /列表已自动更新/);
   assert.match(page, /示例企业/);
   assert.match(page, /可信度/);
+  assert.doesNotMatch(page, /插入输入框|结束本次处理|列表有更新/);
   assert.match(demoData, /新禾食品/);
   assert.match(layout, /Asale · 销售辅助系统/);
   assert.match(packageJson, /"build": "next build"/);

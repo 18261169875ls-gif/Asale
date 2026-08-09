@@ -4,6 +4,7 @@ export type Message = {
   text: string;
   time: string;
   ai?: boolean;
+  auto?: boolean;
 };
 
 export type Customer = {
@@ -15,6 +16,7 @@ export type Customer = {
   wait: string;
   waitMinutes: number;
   unread: number;
+  hasNewMessage?: boolean;
   stage: string;
   intent: "高" | "中" | "低";
   value: "A" | "B" | "C";

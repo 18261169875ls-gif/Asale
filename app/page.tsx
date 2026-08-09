@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Boxes,
@@ -17,7 +17,6 @@ import {
   PanelLeftOpen,
   Paperclip,
   Plus,
-  RefreshCw,
   Search,
   Send,
   SlidersHorizontal,
@@ -30,6 +29,21 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { initialCustomers, type Customer, type Message } from "./demo-data";
+
+type AutomationMode = "auto" | "assist" | "manual";
+
+const automationModes: Array<{ id: AutomationMode; label: string; shortLabel: string }> = [
+  { id: "auto", label: "AI 全自动", shortLabel: "全自动" },
+  { id: "assist", label: "AI 半自动", shortLabel: "半自动" },
+  { id: "manual", label: "纯手动回复", shortLabel: "手动" },
+];
+
+function suggestedReply(customer: Customer) {
+  if (customer.confidence < 75) {
+    return "为了更准确地为您准备方案，想先确认一下具体采购品类、预计用量和期望沟通时间，可以吗？";
+  }
+  return `可以的。根据您对“${customer.coreNeed}”的需求，我建议先确认${customer.concern}，再为您匹配合适方案。我也可以同步发送相关资料供您参考。`;
+}
 
 const navItems: Array<{ label: string; icon: LucideIcon }> = [
   { label: "消息", icon: MessageSquare },
@@ -48,21 +62,16 @@ export default function Home() {
     Object.fromEntries(initialCustomers.map((customer) => [customer.id, customer.messages])),
   );
   const [query, setQuery] = useState("");
-  const [listUpdated, setListUpdated] = useState(true);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [ending, setEnding] = useState(false);
-  const [insertChoice, setInsertChoice] = useState(false);
   const [notice, setNotice] = useState("");
   const [chatRatio, setChatRatio] = useState(60);
-  const [summary, setSummary] = useState("客户正在了解产品规格、起订量与交付周期，已明确主要用于高端茶饮。建议发送产品资料后继续确认预计用量。");
-  const [decisions, setDecisions] = useState<Record<string, "accept" | "reject" | null>>({
-    stage: null,
-    intent: null,
-    value: null,
-  });
-  const [taskText, setTaskText] = useState("发送资料后，明天下午跟进");
   const [aiPrompt, setAiPrompt] = useState("");
-  const reminderRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [automationMode, setAutomationMode] = useState<AutomationMode>("assist");
+  const [advisorReplies, setAdvisorReplies] = useState<Record<string, string>>(
+    Object.fromEntries(initialCustomers.map((customer) => [customer.id, suggestedReply(customer)])),
+  );
+  const automationModeRef = useRef<AutomationMode>("assist");
+  const autoRepliedRef = useRef(new Set<string>());
 
   const activeCustomer = useMemo(
     () => customers.find((customer) => customer.id === activeId) ?? null,
@@ -77,27 +86,97 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const stored = window.localStorage.getItem("asale-automation-mode") as AutomationMode | null;
+    if (!stored || !automationModes.some((mode) => mode.id === stored)) return;
+    automationModeRef.current = stored;
+    // Restore the user's last automation preference after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAutomationMode(stored);
+  }, []);
+
+  useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(""), 3200);
     return () => window.clearTimeout(timer);
   }, [notice]);
+
+  const appendAdvisorMessage = useCallback((customer: Customer, text: string, automated: boolean) => {
+    if (!text.trim()) return;
+    const message: Message = {
+      id: `${customer.id}-advisor-${Date.now()}`,
+      from: "sales",
+      text: text.trim(),
+      time: new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
+      ai: true,
+      auto: automated,
+    };
+    setChatMessages((current) => ({
+      ...current,
+      [customer.id]: [...(current[customer.id] ?? []), message],
+    }));
+    setCustomers((current) => current.map((item) => item.id === customer.id ? {
+      ...item,
+      unread: 0,
+      hasNewMessage: false,
+      latest: automated ? "AI 已自动回复" : "Advisor 话术已发送",
+      wait: "刚刚",
+      waitMinutes: 0,
+    } : item));
+    setNotice(automated ? `${customer.name} 的新消息已由 AI 自动回复` : `已向 ${customer.name} 发送 Advisor 话术`);
+  }, []);
+
+  const autoReplyCustomer = useCallback((customer: Customer) => {
+    if (customer.intent !== "低" || autoRepliedRef.current.has(customer.id)) return;
+    autoRepliedRef.current.add(customer.id);
+    appendAdvisorMessage(customer, suggestedReply(customer), true);
+  }, [appendAdvisorMessage]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const demoCustomer = initialCustomers.find((customer) => customer.id === "yuanchuan");
+      if (!demoCustomer) return;
+      const incomingText = "我们下周二下午方便沟通，想先了解适合贸易渠道的产品范围。";
+      const incomingCustomer: Customer = {
+        ...demoCustomer,
+        latest: incomingText,
+        wait: "刚刚",
+        waitMinutes: 0,
+        unread: demoCustomer.unread + 1,
+        hasNewMessage: true,
+        aiState: "分析完成",
+        priority: 0,
+      };
+      setCustomers((current) => {
+        if (!current.some((customer) => customer.id === incomingCustomer.id)) return current;
+        return [incomingCustomer, ...current.filter((customer) => customer.id !== incomingCustomer.id)]
+          .map((customer, index) => ({ ...customer, priority: index + 1 }));
+      });
+      setChatMessages((current) => ({
+        ...current,
+        [incomingCustomer.id]: [...(current[incomingCustomer.id] ?? []), {
+          id: `${incomingCustomer.id}-incoming-${Date.now()}`,
+          from: "customer",
+          text: incomingText,
+          time: new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
+        }],
+      }));
+      setNotice(`${incomingCustomer.name} 发来新消息，列表已自动更新`);
+      if (automationModeRef.current === "auto") {
+        window.setTimeout(() => autoReplyCustomer(incomingCustomer), 1600);
+      }
+    }, 6000);
+    return () => window.clearTimeout(timer);
+  }, [autoReplyCustomer]);
 
   const filteredCustomers = customers.filter((customer) =>
     `${customer.name}${customer.company}${customer.latest}`.includes(query.trim()),
   );
 
   function openCustomer(id: string) {
-    if (activeId && activeId !== id) {
-      if (reminderRef.current) clearTimeout(reminderRef.current);
-      reminderRef.current = setTimeout(() => {
-        setNotice("上一位客户尚未结束处理，请返回会话或结束本次处理");
-      }, 10 * 60 * 1000);
-    }
     setActiveId(id);
+    setCustomers((current) => current.map((customer) => customer.id === id ? { ...customer, unread: 0, hasNewMessage: false } : customer));
     setNavExpanded(false);
     setDetailsOpen(false);
-    setEnding(false);
-    setInsertChoice(false);
   }
 
   function updateDraft(value: string) {
@@ -105,19 +184,26 @@ export default function Home() {
     setDrafts((current) => ({ ...current, [activeId]: value }));
   }
 
-  function insertReply(mode?: "replace" | "append") {
+  function updateAdvisorReply(value: string) {
     if (!activeCustomer) return;
-    const reply = activeCustomer.confidence < 75
-      ? "为了更准确地为您准备方案，想先确认一下具体采购品类、预计用量和期望沟通时间，可以吗？"
-      : "可以的。根据您用于高端茶饮的需求，我建议先了解细度、色泽和风味偏好，再为您匹配合适规格。我可以同时发送规格、起订量和交付周期供您参考。";
-    const existing = drafts[activeCustomer.id] ?? "";
-    if (existing && !mode) {
-      setInsertChoice(true);
-      return;
+    setAdvisorReplies((current) => ({ ...current, [activeCustomer.id]: value }));
+  }
+
+  function sendAdvisorReply() {
+    if (!activeCustomer || automationMode === "manual") return;
+    appendAdvisorMessage(activeCustomer, advisorReplies[activeCustomer.id] ?? "", false);
+  }
+
+  function changeAutomationMode(mode: AutomationMode) {
+    setAutomationMode(mode);
+    automationModeRef.current = mode;
+    window.localStorage.setItem("asale-automation-mode", mode);
+    setNotice(`${automationModes.find((item) => item.id === mode)?.label}已启用`);
+    if (mode === "auto") {
+      const pendingLowIntent = customers.find((customer) => customer.intent === "低" && customer.hasNewMessage)
+        ?? (activeCustomer?.intent === "低" ? activeCustomer : null);
+      if (pendingLowIntent) window.setTimeout(() => autoReplyCustomer(pendingLowIntent), 800);
     }
-    updateDraft(mode === "append" && existing ? `${existing}\n${reply}` : reply);
-    setInsertChoice(false);
-    setNotice("推荐话术已插入，可继续修改后发送");
   }
 
   function sendMessage() {
@@ -129,38 +215,14 @@ export default function Home() {
       from: "sales",
       text,
       time: new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
-      ai: true,
     };
     setChatMessages((current) => ({
       ...current,
       [activeCustomer.id]: [...(current[activeCustomer.id] ?? []), message],
     }));
     updateDraft("");
-    setNotice("消息已发送，跟进记录已自动保存");
-  }
-
-  function beginEnding() {
-    if (!activeCustomer) return;
-    if ((drafts[activeCustomer.id] ?? "").trim()) {
-      setNotice("存在未发送草稿，请先发送或删除后再结束处理");
-      return;
-    }
-    setSummary(`客户本次主要沟通“${activeCustomer.latest}”，核心需求为${activeCustomer.coreNeed}，重点关注${activeCustomer.concern}。`);
-    setTaskText(`${activeCustomer.nextStep}，明天下午跟进`);
-    setDecisions({ stage: null, intent: null, value: null });
-    setEnding(true);
-  }
-
-  function finishCustomer() {
-    if (!activeCustomer) return;
-    const finishedName = activeCustomer.name;
-    const next = customers.find((customer) => customer.id !== activeCustomer.id);
-    setCustomers((current) => current.filter((customer) => customer.id !== activeCustomer.id));
-    setActiveId(null);
-    setNavExpanded(true);
-    setEnding(false);
-    setDetailsOpen(false);
-    setNotice(`${finishedName} 已完成处理${next ? `，建议接下来处理 ${next.name}` : ""}`);
+    setCustomers((current) => current.map((customer) => customer.id === activeCustomer.id ? { ...customer, unread: 0, hasNewMessage: false, latest: "已手动回复", wait: "刚刚", waitMinutes: 0 } : customer));
+    setNotice("消息已发送，AI 已自动记录本次跟进");
   }
 
   function startResize(event: React.PointerEvent<HTMLButtonElement>) {
@@ -216,19 +278,11 @@ export default function Home() {
           chatMessages={chatMessages}
           updateDraft={updateDraft}
           sendMessage={sendMessage}
-          beginEnding={beginEnding}
-          ending={ending}
-          setEnding={setEnding}
-          summary={summary}
-          setSummary={setSummary}
-          decisions={decisions}
-          setDecisions={setDecisions}
-          taskText={taskText}
-          setTaskText={setTaskText}
-          finishCustomer={finishCustomer}
-          insertReply={insertReply}
-          insertChoice={insertChoice}
-          setInsertChoice={setInsertChoice}
+          automationMode={automationMode}
+          changeAutomationMode={changeAutomationMode}
+          advisorReply={advisorReplies[activeId!] ?? ""}
+          updateAdvisorReply={updateAdvisorReply}
+          sendAdvisorReply={sendAdvisorReply}
           aiPrompt={aiPrompt}
           setAiPrompt={setAiPrompt}
           setNotice={setNotice}
@@ -243,8 +297,6 @@ export default function Home() {
           openCustomer={openCustomer}
           query={query}
           setQuery={setQuery}
-          listUpdated={listUpdated}
-          setListUpdated={setListUpdated}
           setNotice={setNotice}
         />
       )}
@@ -259,16 +311,12 @@ function Overview({
   openCustomer,
   query,
   setQuery,
-  listUpdated,
-  setListUpdated,
   setNotice,
 }: {
   customers: Customer[];
   openCustomer: (id: string) => void;
   query: string;
   setQuery: (value: string) => void;
-  listUpdated: boolean;
-  setListUpdated: (value: boolean) => void;
   setNotice: (value: string) => void;
 }) {
   const [globalPrompt, setGlobalPrompt] = useState("");
@@ -324,7 +372,6 @@ function Overview({
           <div className="panel-title-row">
             <div><h2>待回复客户</h2><span>{customers.length} 位客户等待处理</span></div>
             <div className="list-actions">
-              {listUpdated && <button className="update-button" onClick={() => { setListUpdated(false); setNotice("待回复列表已按最新优先级排序"); }}><RefreshCw size={14} />列表有更新</button>}
               <label className="search-box"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索客户" /></label>
               <button className="filter-button"><SlidersHorizontal size={14} />筛选</button>
             </div>
@@ -338,7 +385,7 @@ function Overview({
                 <button className="priority-main" onClick={() => openCustomer(priorityCustomer.id)} aria-label={`跟进${priorityCustomer.name}`}>
                   <span className="priority-avatar avatar">{priorityCustomer.initial}</span>
                   <span className="priority-copy">
-                    <span className="customer-title-line"><strong>{priorityCustomer.name}</strong><em className="priority-badge">优先</em>{priorityCustomer.unread > 0 && <i>{priorityCustomer.unread}</i>}</span>
+                    <span className="customer-title-line"><strong>{priorityCustomer.name}</strong><em className="priority-badge">优先</em>{priorityCustomer.hasNewMessage && <em className="new-message-badge">新消息</em>}{priorityCustomer.unread > 0 && <i>{priorityCustomer.unread}</i>}</span>
                     <span className="customer-latest">{priorityCustomer.latest}</span>
                   </span>
                   <span className="customer-status-stack">
@@ -356,7 +403,7 @@ function Overview({
             )}
             {customers.slice(1).map((customer) => (
               <button className="compact-customer" key={customer.id} onClick={() => openCustomer(customer.id)}>
-                <span className="customer-cell"><b className="avatar small">{customer.initial}</b><span><strong>{customer.name}</strong><small>{customer.latest}</small></span>{customer.unread > 0 && <i>{customer.unread}</i>}</span>
+                <span className="customer-cell"><b className="avatar small">{customer.initial}</b><span><strong>{customer.name}{customer.hasNewMessage && <em className="new-message-badge compact">新消息</em>}</strong><small>{customer.latest}</small></span>{customer.unread > 0 && <i>{customer.unread}</i>}</span>
                 <span className="compact-meta"><IntentBadge intent={customer.intent} /><em>价值 {customer.value}</em><TimeStatus minutes={customer.waitMinutes} label={customer.wait} /><AnalysisBadge state={customer.aiState} /></span>
                 <span className="row-actions"><em>查看画像</em><em>生成建议</em><strong>立即跟进 <ArrowRight size={13} /></strong></span>
               </button>
@@ -427,19 +474,11 @@ type WorkspaceProps = {
   chatMessages: Record<string, Message[]>;
   updateDraft: (value: string) => void;
   sendMessage: () => void;
-  beginEnding: () => void;
-  ending: boolean;
-  setEnding: (value: boolean) => void;
-  summary: string;
-  setSummary: (value: string) => void;
-  decisions: Record<string, "accept" | "reject" | null>;
-  setDecisions: React.Dispatch<React.SetStateAction<Record<string, "accept" | "reject" | null>>>;
-  taskText: string;
-  setTaskText: (value: string) => void;
-  finishCustomer: () => void;
-  insertReply: (mode?: "replace" | "append") => void;
-  insertChoice: boolean;
-  setInsertChoice: (value: boolean) => void;
+  automationMode: AutomationMode;
+  changeAutomationMode: (mode: AutomationMode) => void;
+  advisorReply: string;
+  updateAdvisorReply: (value: string) => void;
+  sendAdvisorReply: () => void;
   aiPrompt: string;
   setAiPrompt: (value: string) => void;
   setNotice: (value: string) => void;
@@ -456,11 +495,11 @@ function ConversationWorkspace(props: WorkspaceProps) {
       <aside className="conversation-list" aria-label="客户会话列表">
         <div className="conversation-list-header"><h2>客户会话</h2><div><button aria-label="搜索会话"><Search size={16} /></button><button aria-label="筛选会话"><SlidersHorizontal size={16} /></button></div></div>
         <div className="conversation-items">
-          {props.customers.map((item, index) => (
+          {props.customers.map((item) => (
             <button key={item.id} className={`conversation-item ${item.id === props.activeId ? "selected" : ""}`} onClick={() => props.openCustomer(item.id)}>
               <b className="avatar">{item.initial}</b>
-              <span><strong>{item.name}</strong><small>{props.drafts[item.id] ? <i>草稿</i> : item.latest}</small><em>{item.wait}</em></span>
-              {item.unread > 0 && <u>{item.unread}</u>}{index === 3 && !props.drafts[item.id] && <i className="draft-label">草稿</i>}
+              <span><strong>{item.name}{item.hasNewMessage && <i className="conversation-new">新</i>}</strong><small>{props.drafts[item.id] ? <i>草稿</i> : item.latest}</small><em>{item.wait}</em></span>
+              {item.unread > 0 && <u>{item.unread}</u>}
             </button>
           ))}
         </div>
@@ -470,14 +509,14 @@ function ConversationWorkspace(props: WorkspaceProps) {
         <section className="chat-panel" aria-label="当前客户对话">
           <header className="chat-header">
             <div><h1>{customer.name}</h1><p>{customer.company} <span className="online-dot" /> 在线</p><em>{customer.stage}</em></div>
-            <button className="secondary-button" onClick={props.beginEnding}>结束本次处理</button>
+            <span className="auto-recording"><Sparkles size={13} />AI 自动记录中</span>
           </header>
           <div className="message-scroll">
             {(props.chatMessages[customer.id] ?? []).map((message) => (
               <div className={`message-line ${message.from}`} key={message.id}>
                 <span className="message-meta">{message.from === "customer" ? customer.name : "我"} · {message.time}</span>
                 <div className="bubble">{message.text}</div>
-                {message.ai && <button className="ai-assisted" onClick={() => props.setNotice("可查看推荐原文、修改内容与推荐依据")}><Sparkles size={11} />AI 辅助</button>}
+                {message.ai && <button className="ai-assisted" onClick={() => props.setNotice("可查看推荐原文、修改内容与推荐依据")}><Sparkles size={11} />{message.auto ? "AI 自动回复" : "Advisor 话术"}</button>}
               </div>
             ))}
             <div className="new-divider"><span>以下为新消息</span></div>
@@ -498,11 +537,7 @@ function ConversationWorkspace(props: WorkspaceProps) {
         <button className="resize-handle" aria-label="调整对话与 AI 区域宽度" onPointerDown={props.startResize}><span /></button>
 
         <aside className="ai-panel" aria-label="实时 AI 辅助">
-          {props.ending ? (
-            <EndProcessing {...props} />
-          ) : (
-            <AIContent {...props} />
-          )}
+          <AIContent {...props} />
         </aside>
       </div>
 
@@ -514,39 +549,40 @@ function ConversationWorkspace(props: WorkspaceProps) {
 function AIContent(props: WorkspaceProps) {
   const customer = props.activeCustomer;
   const lowConfidence = customer.confidence < 75;
+  const autoEligible = props.automationMode === "auto" && customer.intent === "低";
+  const modeCopy = props.automationMode === "auto"
+    ? autoEligible
+      ? "低意向客户已进入自动托管，新消息将由 AI 自动回复。"
+      : "中高意向客户仍需确认后发送，避免高价值沟通误发。"
+    : props.automationMode === "assist"
+      ? "话术可直接编辑，确认后由 Advisor 发送。"
+      : "Advisor 不生成或发送话术，请在客户输入框中手动回复。";
   return (
     <>
-      <header className="ai-header"><div><h2>Advisor</h2><span>分析完成</span></div><strong className={lowConfidence ? "confidence low" : "confidence"}>可信度 {customer.confidence}</strong></header>
+      <header className="ai-header">
+        <div><h2>Advisor</h2><span>分析完成</span></div>
+        <div className="ai-header-actions">
+          <strong className={lowConfidence ? "confidence low" : "confidence"}>可信度 {customer.confidence}</strong>
+          <label className="mode-selector">
+            <span className="sr-only">AI 回复模式</span>
+            <select value={props.automationMode} onChange={(event) => props.changeAutomationMode(event.target.value as AutomationMode)} aria-label="AI 回复模式">
+              {automationModes.map((mode) => <option value={mode.id} key={mode.id}>{mode.label}</option>)}
+            </select>
+            <ChevronDown size={13} aria-hidden="true" />
+          </label>
+        </div>
+      </header>
       <div className="ai-scroll">
+        <section className={`mode-notice mode-${props.automationMode}`}><span>{automationModes.find((mode) => mode.id === props.automationMode)?.shortLabel}</span><p>{modeCopy}</p></section>
         {lowConfidence && <section className="uncertainty"><strong>不建议直接参考</strong><p>客户需求范围与采购信息不足，暂时无法准确判断价值。</p><ul><li>缺少具体采购品类</li><li>缺少预计用量</li><li>沟通时间尚未确认</li></ul></section>}
         <section className="analysis-pair"><div><span>客户意图</span><strong>{lowConfidence ? "需要补充确认" : "询价并索取产品资料"}</strong></div><div><span>客户价值</span><strong>{lowConfidence ? "暂不判断" : `${customer.intent}价值`}</strong></div></section>
-        <section className="reply-card"><h3>{lowConfidence ? "澄清式话术" : "主推荐话术"}</h3><p>{lowConfidence ? "为了更准确地为您准备方案，想先确认一下具体采购品类、预计用量和期望沟通时间，可以吗？" : "可以的。根据您用于高端茶饮的需求，我建议先了解细度、色泽和风味偏好，再为您匹配合适规格。我可以同时发送规格、起订量和交付周期供您参考。"}</p><button className="primary-button" onClick={() => props.insertReply()}>插入输入框</button></section>
-        {props.insertChoice && <section className="insert-choice"><strong>输入框已有内容</strong><p>请选择如何插入推荐话术</p><div><button onClick={() => props.insertReply("replace")}>替换</button><button onClick={() => props.insertReply("append")}>追加</button><button onClick={() => props.setInsertChoice(false)}>取消</button></div></section>}
-        {!lowConfidence && <button className="alternative-row">查看 2 条备选话术 <ChevronDown size={15} /></button>}
+        {props.automationMode !== "manual" && <section className="reply-card editable-reply"><div className="reply-heading"><h3>{lowConfidence ? "澄清式话术" : "Advisor 推荐话术"}</h3><span>可直接编辑</span></div><textarea aria-label="Advisor 可编辑话术" value={props.advisorReply} onChange={(event) => props.updateAdvisorReply(event.target.value)} />{autoEligible ? <div className="auto-reply-state"><span className="mini-spinner" />新消息到达后自动发送</div> : <button className="primary-button" disabled={!props.advisorReply.trim()} onClick={props.sendAdvisorReply}>确认发送</button>}</section>}
+        {props.automationMode !== "manual" && !lowConfidence && <button className="alternative-row">查看 2 条备选话术 <ChevronDown size={15} /></button>}
         <section className="evidence"><h3>推荐依据</h3><ul><li>明确采购场景</li><li>主动询问规格与报价</li><li>关注交付能力</li></ul></section>
-        <section className="task-card"><h3>下一步任务建议</h3><p>发送资料后，明天下午跟进</p><div><button className="primary-button" onClick={() => props.setNotice("任务已确认创建")}>确认</button><button onClick={() => props.setNotice("可在任务页修改时间和内容")}>编辑</button></div></section>
+        <section className="task-card"><h3>自动跟进记录</h3><p>沟通总结与客户状态将在消息发送后自动更新。</p><div><button className="primary-button" onClick={() => props.setNotice("已打开本次 AI 跟进记录")}>查看记录</button><button onClick={() => props.setNotice("可在任务页查看待确认建议")}>任务建议</button></div></section>
       </div>
       <div className="ai-composer"><textarea value={props.aiPrompt} onChange={(event) => props.setAiPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); props.setNotice("AI 任务已提交"); props.setAiPrompt(""); } }} placeholder="向 AI 提问或下达任务…" aria-label="AI 指令输入" /><div><button onClick={() => { props.setAiPrompt(`${props.aiPrompt}（语音转写内容）`); props.setNotice("语音已转写，请确认后提交"); }} aria-label="AI 语音输入"><Mic size={17} /></button><button className="send-circle" onClick={() => { props.setNotice("AI 任务已提交"); props.setAiPrompt(""); }} aria-label="发送 AI 任务"><Send size={16} /></button></div></div>
     </>
-  );
-}
-
-function EndProcessing(props: WorkspaceProps) {
-  const suggestions = [
-    ["stage", "客户阶段", "初步接触", "需求确认"],
-    ["intent", "意向程度", "中", "高"],
-    ["value", "客户价值", "B", "A"],
-  ];
-  return (
-    <div className="end-panel">
-      <header><div><h2>结束本次处理</h2><span>确认后写入本次跟进记录</span></div><button onClick={() => props.setEnding(false)} aria-label="关闭"><X size={17} /></button></header>
-      <div className="end-scroll">
-        <label><strong>沟通总结</strong><textarea value={props.summary} onChange={(event) => props.setSummary(event.target.value)} /></label>
-        <section className="update-section"><h3>客户数据更新建议</h3>{suggestions.map(([key, label, before, after]) => <article key={key}><div><span>{label}</span><p>{before} <b>→</b> {after}</p></div><div><button className={props.decisions[key] === "accept" ? "selected" : ""} onClick={() => props.setDecisions((current) => ({ ...current, [key]: "accept" }))}>接受</button><button className={props.decisions[key] === "reject" ? "selected" : ""} onClick={() => props.setDecisions((current) => ({ ...current, [key]: "reject" }))}>拒绝</button></div></article>)}</section>
-        <label><strong>下一步任务</strong><input value={props.taskText} onChange={(event) => props.setTaskText(event.target.value)} /><small>任务建议可稍后在“任务—待确认”中处理</small></label>
-      </div>
-      <footer><button onClick={() => props.setEnding(false)}>取消</button><button className="primary-button" onClick={props.finishCustomer}>确认并结束处理</button></footer>
-    </div>
   );
 }
 
