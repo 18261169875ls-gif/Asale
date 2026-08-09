@@ -715,7 +715,7 @@ function AgentProcess({ customer, run }: { customer: Customer; run: AnalysisRun 
   return (
     <section className={`agent-process ${done ? "complete" : "running"}`}>
       <button className="agent-process-summary" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
-        <span className="agent-process-icon">{done ? <Check size={13} /> : <Sparkles size={13} />}</span>
+        <span className="agent-process-icon">{done ? <i className="continuous-loader" aria-hidden="true" /> : <Sparkles size={13} />}</span>
         <span className="agent-process-copy"><strong>{done ? "持续监听中" : "正在分析"}</strong><small>{done ? `已分析 ${run.total} 条消息 · 最近 ${run.time}` : `${agentSteps[Math.min(step, agentSteps.length - 1)].title} · ${step + 1}/${agentSteps.length}`}</small></span>
         <span className="agent-process-progress" aria-hidden="true"><i style={{ width: `${done ? 100 : ((step + 0.45) / agentSteps.length) * 100}%` }} /></span>
         {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}

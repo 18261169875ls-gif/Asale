@@ -24,6 +24,7 @@ test("contains the Vercel-ready Asale AI sales workspace", async () => {
   assert.match(page, /判断意图与价值/);
   assert.match(page, /展示的是可验证的执行步骤与结果/);
   assert.match(page, /持续监听中/);
+  assert.match(page, /continuous-loader/);
   assert.match(page, /累计分析/);
   assert.match(page, /销售回复/);
   assert.match(navigation, /示例企业/);
