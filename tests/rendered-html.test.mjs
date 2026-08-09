@@ -18,6 +18,10 @@ test("contains the Vercel-ready Asale AI sales workspace", async () => {
   assert.match(page, /AI 回复模式/);
   assert.match(page, /Advisor 可编辑话术/);
   assert.match(page, /列表已自动更新/);
+  assert.match(page, /Agent 执行步骤/);
+  assert.match(page, /读取最新消息/);
+  assert.match(page, /判断意图与价值/);
+  assert.match(page, /展示的是可验证的执行步骤与结果/);
   assert.match(navigation, /示例企业/);
   assert.match(page, /可信度/);
   assert.doesNotMatch(page, /插入输入框|结束本次处理|列表有更新/);
@@ -48,4 +52,5 @@ test("contains complete secondary workspace routes", async () => {
   assert.match(profile, /销售画像|通知设置|AI 偏好|账号与权限/);
   assert.match(navigation, /\/customers|\/tasks|\/calendar|\/tools|\/profile|\/search/);
   assert.match(badges, /wechat-unread|stage-prominent/);
+  assert.match(badges, /99\+/);
 });

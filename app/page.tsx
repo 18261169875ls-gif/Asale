@@ -5,7 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  Check,
   ChevronDown,
+  ChevronUp,
   ClipboardCheck,
   Clock3,
   FileText,
@@ -568,7 +570,7 @@ function AIContent(props: WorkspaceProps) {
         <div><h2>Advisor</h2><span>分析完成</span></div>
         <div className="ai-header-actions">
           <strong className={lowConfidence ? "confidence low" : "confidence"}>可信度 {customer.confidence}</strong>
-          <label className="mode-selector">
+          <label className={`mode-selector mode-${props.automationMode}`}>
             <span className="sr-only">AI 回复模式</span>
             <select value={props.automationMode} onChange={(event) => props.changeAutomationMode(event.target.value as AutomationMode)} aria-label="AI 回复模式">
               {automationModes.map((mode) => <option value={mode.id} key={mode.id}>{mode.label}</option>)}
@@ -578,6 +580,7 @@ function AIContent(props: WorkspaceProps) {
         </div>
       </header>
       <div className="ai-scroll">
+        <AgentProcess key={customer.id} customer={customer} />
         <section className={`mode-notice mode-${props.automationMode}`}><span>{automationModes.find((mode) => mode.id === props.automationMode)?.shortLabel}</span><p>{modeCopy}</p></section>
         {lowConfidence && <section className="uncertainty"><strong>不建议直接参考</strong><p>客户需求范围与采购信息不足，暂时无法准确判断价值。</p><ul><li>缺少具体采购品类</li><li>缺少预计用量</li><li>沟通时间尚未确认</li></ul></section>}
         <section className="analysis-pair"><div><span>客户意图</span><strong>{lowConfidence ? "需要补充确认" : "询价并索取产品资料"}</strong></div><div><span>客户价值</span><strong>{lowConfidence ? "暂不判断" : `${customer.intent}价值`}</strong></div></section>
@@ -588,6 +591,48 @@ function AIContent(props: WorkspaceProps) {
       </div>
       <div className="ai-composer"><textarea value={props.aiPrompt} onChange={(event) => props.setAiPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); props.setNotice("AI 任务已提交"); props.setAiPrompt(""); } }} placeholder="向 AI 提问或下达任务…" aria-label="AI 指令输入" /><div><button onClick={() => { props.setAiPrompt(`${props.aiPrompt}（语音转写内容）`); props.setNotice("语音已转写，请确认后提交"); }} aria-label="AI 语音输入"><Mic size={17} /></button><button className="send-circle" onClick={() => { props.setNotice("AI 任务已提交"); props.setAiPrompt(""); }} aria-label="发送 AI 任务"><Send size={16} /></button></div></div>
     </>
+  );
+}
+
+const agentSteps = [
+  { title: "读取最新消息", detail: "已提取客户问题、时间和关键实体" },
+  { title: "判断意图与价值", detail: "结合当前阶段更新意向与价值评分" },
+  { title: "检索销售资料", detail: "匹配产品资料、历史跟进与知识库依据" },
+  { title: "生成回复建议", detail: "形成可编辑话术并完成风险检查" },
+];
+
+function AgentProcess({ customer }: { customer: Customer }) {
+  const [step, setStep] = useState(0);
+  const [open, setOpen] = useState(false);
+  const done = step >= agentSteps.length;
+
+  useEffect(() => {
+    const timers = agentSteps.map((_, index) => window.setTimeout(() => setStep(index + 1), 620 * (index + 1)));
+    timers.push(window.setTimeout(() => setOpen(false), 3200));
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, []);
+
+  return (
+    <section className={`agent-process ${done ? "complete" : "running"}`}>
+      <button className="agent-process-summary" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+        <span className="agent-process-icon">{done ? <Check size={13} /> : <Sparkles size={13} />}</span>
+        <span className="agent-process-copy"><strong>{done ? "分析完成" : "正在分析"}</strong><small>{done ? `已完成 ${agentSteps.length} 个步骤` : `${agentSteps[Math.min(step, agentSteps.length - 1)].title} · ${step + 1}/${agentSteps.length}`}</small></span>
+        <span className="agent-process-progress" aria-hidden="true"><i style={{ width: `${done ? 100 : ((step + 0.45) / agentSteps.length) * 100}%` }} /></span>
+        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
+      {open && <div className="agent-process-details">
+        <p>Agent 执行步骤 · 当前客户：{customer.name}</p>
+        <ol>{agentSteps.map((item, index) => {
+          const finished = index < step;
+          const active = !done && index === step;
+          return <li className={finished ? "finished" : active ? "active" : "pending"} key={item.title}>
+            <span>{finished ? <Check size={11} /> : active ? <i className="agent-step-spinner" /> : index + 1}</span>
+            <div><strong>{item.title}</strong><small>{finished ? item.detail : active ? "正在处理…" : "等待执行"}</small></div>
+          </li>;
+        })}</ol>
+        <small className="agent-process-note">展示的是可验证的执行步骤与结果，不包含模型内部隐性推理。</small>
+      </div>}
+    </section>
   );
 }
 
