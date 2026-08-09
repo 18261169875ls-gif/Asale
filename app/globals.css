@@ -231,7 +231,7 @@ a { color: inherit; text-decoration: none; }
 .secondary-button, .primary-button { min-height: 36px; border: 1px solid var(--line-strong); border-radius: 9px; background: #fff; padding: 0 13px; cursor: pointer; font-size: 12px; }
 .secondary-button:hover { background: var(--surface); }
 .primary-button { border-color: var(--primary); background: var(--primary); color: #fff; font-weight: 600; }
-.message-scroll { min-height: 0; flex: 1; overflow: auto; padding: 28px clamp(18px, 4vw, 54px); }
+.message-scroll { min-height: 0; flex: 1; overflow: auto; padding: 28px clamp(18px, 4vw, 54px); scroll-behavior: smooth; }
 .message-line { max-width: 84%; margin-bottom: 24px; display: flex; flex-direction: column; align-items: flex-start; }
 .message-line.sales { margin-left: auto; align-items: flex-end; }
 .message-meta { margin-bottom: 6px; color: var(--faint); font-size: 10px; }
@@ -296,6 +296,7 @@ a { color: inherit; text-decoration: none; }
 .agent-process-summary > svg { color: var(--muted); }
 .agent-process-details { border-top: 1px solid var(--line); background: #fbfbfd; padding: 10px 12px 12px; animation: agent-reveal 160ms ease; }
 .agent-process-details > p { margin: 0 0 10px; color: var(--muted); font-size: 9px; }
+.agent-message-context { max-height: 48px; margin: 0 0 11px; border-left: 2px solid #cdd2ff; border-radius: 0 7px 7px 0; background: #f4f5ff; padding: 7px 9px; overflow: hidden; color: #555b69; font-size: 9px; line-height: 1.55; }
 .agent-process-details ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 0; }
 .agent-process-details li { position: relative; min-height: 44px; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; }
 .agent-process-details li:not(:last-child)::after { content: ""; position: absolute; top: 22px; bottom: 0; left: 10px; width: 1px; background: #dfe1e8; }
@@ -307,6 +308,7 @@ a { color: inherit; text-decoration: none; }
 .agent-process-details li small { color: var(--muted); font-size: 9px; line-height: 1.45; }
 .agent-process-details li.pending strong, .agent-process-details li.pending small { color: #9a9fa9; }
 .agent-step-spinner { width: 9px; height: 9px; border: 1.5px solid #cbc9f5; border-top-color: #5a46d6; border-radius: 999px; animation: spin .75s linear infinite; }
+.agent-process-stats { margin-top: 3px; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 8px; }
 .agent-process-note { display: block; margin-top: 4px; border-radius: 7px; background: #f0f1f4; padding: 7px 8px; color: #777d88; font-size: 8px; line-height: 1.45; }
 .analysis-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 8px; }
 .analysis-pair div, .reply-card, .task-card, .uncertainty { border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 11px; }

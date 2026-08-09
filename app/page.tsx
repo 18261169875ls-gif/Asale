@@ -34,6 +34,13 @@ type CustomerFilterState = {
   stage: "全部" | string;
   aiState: "全部" | Customer["aiState"];
 };
+type AnalysisRun = {
+  version: number;
+  source: Message["from"];
+  text: string;
+  time: string;
+  total: number;
+};
 
 const defaultAssistantName = "Advisor 助手";
 
@@ -50,6 +57,14 @@ function suggestedReply(customer: Customer) {
   return `可以的。根据您对“${customer.coreNeed}”的需求，我建议先确认${customer.concern}，再为您匹配合适方案。我也可以同步发送相关资料供您参考。`;
 }
 
+function replyForIncomingMessage(text: string) {
+  if (/报价|价格|成本/.test(text)) return "可以的，我会按您的目标成本整理对应规格和阶梯报价。为了保证报价准确，再确认一下预计月用量和期望交付时间，可以吗？";
+  if (/沉淀|稳定|储存|pH|糖度/.test(text)) return "收到这些测试参数。我会请应用团队结合灌装温度、pH 和包装方式判断稳定性，并给您一份复测建议。";
+  if (/资料|规格|认证/.test(text)) return "没问题，我会把相关产品规格、认证文件和建议应用比例整理给您。请问您更关注饮品、烘焙还是预包装应用？";
+  if (/下周|沟通|时间/.test(text)) return "可以，下周二下午方便。我先把产品分类和适用场景发您，沟通时再根据客户类型确认重点品类与预计用量。";
+  return `收到您提到的“${text.slice(0, 28)}${text.length > 28 ? "…" : ""}”。我先结合当前需求整理方案，并补充确认用量、时间和关键规格。`;
+}
+
 export default function Home() {
   const [customers, setCustomers] = useState(initialCustomers);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -58,6 +73,10 @@ export default function Home() {
   const [chatMessages, setChatMessages] = useState<Record<string, Message[]>>(
     Object.fromEntries(initialCustomers.map((customer) => [customer.id, customer.messages])),
   );
+  const [analysisRuns, setAnalysisRuns] = useState<Record<string, AnalysisRun>>(() => Object.fromEntries(initialCustomers.map((customer) => {
+    const latestMessage = customer.messages.at(-1)!;
+    return [customer.id, { version: 0, source: latestMessage.from, text: latestMessage.text, time: latestMessage.time, total: customer.messages.length }];
+  })));
   const [query, setQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<CustomerFilterState>({ intent: "全部", stage: "全部", aiState: "全部" });
@@ -72,6 +91,7 @@ export default function Home() {
   );
   const automationModeRef = useRef<AutomationMode>("assist");
   const assistantNameRef = useRef(defaultAssistantName);
+  const analysisVersionRef = useRef<Record<string, number>>(Object.fromEntries(initialCustomers.map((customer) => [customer.id, 0])));
   const autoRepliedRef = useRef(new Set<string>());
 
   const activeCustomer = useMemo(
@@ -110,6 +130,29 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
+  const triggerAnalysis = useCallback((customerId: string, message: Message) => {
+    const version = (analysisVersionRef.current[customerId] ?? 0) + 1;
+    analysisVersionRef.current[customerId] = version;
+    setAnalysisRuns((current) => {
+      const previous = current[customerId];
+      return { ...current, [customerId]: { version, source: message.from, text: message.text, time: message.time, total: (previous?.total ?? 0) + 1 } };
+    });
+    if (message.from === "customer") {
+      setAdvisorReplies((current) => ({ ...current, [customerId]: replyForIncomingMessage(message.text) }));
+    }
+    setCustomers((current) => current.map((customer) => customer.id === customerId ? {
+      ...customer,
+      aiState: "正在分析",
+      confidence: Math.min(95, customer.confidence + (message.from === "customer" ? 1 : 0)),
+      lastInteraction: `今天 ${message.time}`,
+      aiSuggestion: message.from === "customer" ? "正在结合客户最新信息更新意图、价值与下一步建议。" : "已复盘销售本次回复，继续监听客户反馈。",
+    } : customer));
+    window.setTimeout(() => {
+      if (analysisVersionRef.current[customerId] !== version) return;
+      setCustomers((current) => current.map((customer) => customer.id === customerId ? { ...customer, aiState: "分析完成", aiSuggestion: message.from === "customer" ? "最新消息已完成分析，建议按更新后的话术继续确认关键需求。" : "销售回复已复盘，建议等待客户反馈并准备下一步资料。" } : customer));
+    }, 2800);
+  }, []);
+
   const appendAdvisorMessage = useCallback((customer: Customer, text: string, automated: boolean) => {
     if (!text.trim()) return;
     const message: Message = {
@@ -124,6 +167,7 @@ export default function Home() {
       ...current,
       [customer.id]: [...(current[customer.id] ?? []), message],
     }));
+    triggerAnalysis(customer.id, message);
     setCustomers((current) => current.map((item) => item.id === customer.id ? {
       ...item,
       unread: 0,
@@ -133,7 +177,7 @@ export default function Home() {
       waitMinutes: 0,
     } : item));
     setNotice(automated ? `${customer.name} 的新消息已由 AI 自动回复` : `已向 ${customer.name} 发送${assistantNameRef.current}话术`);
-  }, []);
+  }, [triggerAnalysis]);
 
   const autoReplyCustomer = useCallback((customer: Customer) => {
     if (customer.intent !== "低" || autoRepliedRef.current.has(customer.id)) return;
@@ -170,13 +214,19 @@ export default function Home() {
           time: new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
         }],
       }));
+      triggerAnalysis(incomingCustomer.id, {
+        id: `${incomingCustomer.id}-analysis-${Date.now()}`,
+        from: "customer",
+        text: incomingText,
+        time: new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
+      });
       setNotice(`${incomingCustomer.name} 发来新消息，列表已自动更新`);
       if (automationModeRef.current === "auto") {
         window.setTimeout(() => autoReplyCustomer(incomingCustomer), 1600);
       }
     }, 6000);
     return () => window.clearTimeout(timer);
-  }, [autoReplyCustomer]);
+  }, [autoReplyCustomer, triggerAnalysis]);
 
   const filteredCustomers = customers.filter((customer) =>
     `${customer.name}${customer.company}${customer.latest}`.includes(query.trim())
@@ -241,6 +291,7 @@ export default function Home() {
       ...current,
       [activeCustomer.id]: [...(current[activeCustomer.id] ?? []), message],
     }));
+    triggerAnalysis(activeCustomer.id, message);
     updateDraft("");
     setCustomers((current) => current.map((customer) => customer.id === activeCustomer.id ? { ...customer, unread: 0, hasNewMessage: false, latest: "已手动回复", wait: "刚刚", waitMinutes: 0 } : customer));
     setNotice("消息已发送，AI 已自动记录本次跟进");
@@ -285,6 +336,7 @@ export default function Home() {
           chatMessages={chatMessages}
           updateDraft={updateDraft}
           sendMessage={sendMessage}
+          analysisRun={analysisRuns[activeId!]}
           assistantName={assistantName}
           renameAssistant={renameAssistant}
           automationMode={automationMode}
@@ -507,6 +559,7 @@ type WorkspaceProps = {
   chatMessages: Record<string, Message[]>;
   updateDraft: (value: string) => void;
   sendMessage: () => void;
+  analysisRun: AnalysisRun;
   assistantName: string;
   renameAssistant: (name: string) => void;
   automationMode: AutomationMode;
@@ -526,6 +579,13 @@ type WorkspaceProps = {
 
 function ConversationWorkspace(props: WorkspaceProps) {
   const { activeCustomer: customer } = props;
+  const messageCount = props.chatMessages[customer.id]?.length ?? 0;
+  const messageEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messageEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [customer.id, messageCount]);
+
   return (
     <>
       <aside className="conversation-list" aria-label="客户会话列表">
@@ -556,6 +616,7 @@ function ConversationWorkspace(props: WorkspaceProps) {
               </div>
             ))}
             <div className="new-divider"><span>以下为新消息</span></div>
+            <div ref={messageEndRef} />
           </div>
           <div className="chat-composer">
             <textarea
@@ -605,7 +666,7 @@ function AIContent(props: WorkspaceProps) {
       <header className="ai-header">
         <div className="ai-title-block">
           {renaming ? <div className="assistant-name-editor"><input value={nameDraft} onChange={(event) => setNameDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveAssistantName(); if (event.key === "Escape") { setNameDraft(props.assistantName); setRenaming(false); } }} maxLength={20} aria-label="AI 助手名称" /><button onClick={saveAssistantName} aria-label="保存助手名称"><Check size={13} /></button><button onClick={() => { setNameDraft(props.assistantName); setRenaming(false); }} aria-label="取消重命名"><X size={13} /></button></div> : <div className="assistant-name-heading"><h2>{props.assistantName}</h2><button onClick={() => { setNameDraft(props.assistantName); setRenaming(true); }} aria-label="重命名 AI 助手"><Pencil size={12} /></button></div>}
-          <span>分析完成</span>
+          <span>持续分析每条对话</span>
         </div>
         <div className="ai-header-actions">
           <strong className={lowConfidence ? "confidence low" : "confidence"}>可信度 {customer.confidence}</strong>
@@ -619,7 +680,7 @@ function AIContent(props: WorkspaceProps) {
         </div>
       </header>
       <div className="ai-scroll">
-        <AgentProcess key={customer.id} customer={customer} />
+        <AgentProcess key={`${customer.id}-${props.analysisRun.version}`} customer={customer} run={props.analysisRun} />
         <section className={`mode-notice mode-${props.automationMode}`}><span>{automationModes.find((mode) => mode.id === props.automationMode)?.shortLabel}</span><p>{modeCopy}</p></section>
         {lowConfidence && <section className="uncertainty"><strong>不建议直接参考</strong><p>客户需求范围与采购信息不足，暂时无法准确判断价值。</p><ul><li>缺少具体采购品类</li><li>缺少预计用量</li><li>沟通时间尚未确认</li></ul></section>}
         <section className="analysis-pair"><div><span>客户意图</span><strong>{lowConfidence ? "需要补充确认" : "询价并索取产品资料"}</strong></div><div><span>客户价值</span><strong>{lowConfidence ? "暂不判断" : `${customer.intent}价值`}</strong></div></section>
@@ -640,7 +701,7 @@ const agentSteps = [
   { title: "生成回复建议", detail: "形成可编辑话术并完成风险检查" },
 ];
 
-function AgentProcess({ customer }: { customer: Customer }) {
+function AgentProcess({ customer, run }: { customer: Customer; run: AnalysisRun }) {
   const [step, setStep] = useState(0);
   const [open, setOpen] = useState(false);
   const done = step >= agentSteps.length;
@@ -655,12 +716,13 @@ function AgentProcess({ customer }: { customer: Customer }) {
     <section className={`agent-process ${done ? "complete" : "running"}`}>
       <button className="agent-process-summary" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
         <span className="agent-process-icon">{done ? <Check size={13} /> : <Sparkles size={13} />}</span>
-        <span className="agent-process-copy"><strong>{done ? "分析完成" : "正在分析"}</strong><small>{done ? `已完成 ${agentSteps.length} 个步骤` : `${agentSteps[Math.min(step, agentSteps.length - 1)].title} · ${step + 1}/${agentSteps.length}`}</small></span>
+        <span className="agent-process-copy"><strong>{done ? "持续监听中" : "正在分析"}</strong><small>{done ? `已分析 ${run.total} 条消息 · 最近 ${run.time}` : `${agentSteps[Math.min(step, agentSteps.length - 1)].title} · ${step + 1}/${agentSteps.length}`}</small></span>
         <span className="agent-process-progress" aria-hidden="true"><i style={{ width: `${done ? 100 : ((step + 0.45) / agentSteps.length) * 100}%` }} /></span>
         {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
       </button>
       {open && <div className="agent-process-details">
-        <p>Agent 执行步骤 · 当前客户：{customer.name}</p>
+        <p>Agent 执行步骤 · 本轮分析：{run.source === "customer" ? "客户消息" : "销售回复"} · {run.time}</p>
+        <blockquote className="agent-message-context">“{run.text}”</blockquote>
         <ol>{agentSteps.map((item, index) => {
           const finished = index < step;
           const active = !done && index === step;
@@ -669,6 +731,7 @@ function AgentProcess({ customer }: { customer: Customer }) {
             <div><strong>{item.title}</strong><small>{finished ? item.detail : active ? "正在处理…" : "等待执行"}</small></div>
           </li>;
         })}</ol>
+        <div className="agent-process-stats"><span>当前客户：{customer.name}</span><span>累计分析：{run.total} 条消息</span></div>
         <small className="agent-process-note">展示的是可验证的执行步骤与结果，不包含模型内部隐性推理。</small>
       </div>}
     </section>

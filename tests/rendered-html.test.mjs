@@ -23,10 +23,18 @@ test("contains the Vercel-ready Asale AI sales workspace", async () => {
   assert.match(page, /读取最新消息/);
   assert.match(page, /判断意图与价值/);
   assert.match(page, /展示的是可验证的执行步骤与结果/);
+  assert.match(page, /持续监听中/);
+  assert.match(page, /累计分析/);
+  assert.match(page, /销售回复/);
   assert.match(navigation, /示例企业/);
   assert.match(page, /可信度/);
   assert.doesNotMatch(page, /插入输入框|结束本次处理|列表有更新/);
   assert.match(demoData, /新禾食品/);
+  assert.match(demoData, /首批各 3 万瓶/);
+  assert.match(demoData, /每月大约 300 公斤/);
+  assert.match(demoData, /85℃ 热灌装/);
+  assert.match(demoData, /常规规格、认证和大概价格带/);
+  assert.match(demoData, /先发分类表/);
   assert.match(layout, /信息予你无限，Asale与你重筑未来/);
   assert.match(layout, /brand\/asale-icon\.png/);
   assert.match(packageJson, /"build": "next build"/);
