@@ -14,6 +14,7 @@ import {
   Image as ImageIcon,
   Mic,
   Paperclip,
+  Pencil,
   Search,
   Send,
   SlidersHorizontal,
@@ -33,6 +34,8 @@ type CustomerFilterState = {
   stage: "全部" | string;
   aiState: "全部" | Customer["aiState"];
 };
+
+const defaultAssistantName = "Advisor 助手";
 
 const automationModes: Array<{ id: AutomationMode; label: string; shortLabel: string }> = [
   { id: "auto", label: "AI 全自动", shortLabel: "全自动" },
@@ -62,11 +65,13 @@ export default function Home() {
   const [notice, setNotice] = useState("");
   const [chatRatio, setChatRatio] = useState(60);
   const [aiPrompt, setAiPrompt] = useState("");
+  const [assistantName, setAssistantName] = useState(defaultAssistantName);
   const [automationMode, setAutomationMode] = useState<AutomationMode>("assist");
   const [advisorReplies, setAdvisorReplies] = useState<Record<string, string>>(
     Object.fromEntries(initialCustomers.map((customer) => [customer.id, suggestedReply(customer)])),
   );
   const automationModeRef = useRef<AutomationMode>("assist");
+  const assistantNameRef = useRef(defaultAssistantName);
   const autoRepliedRef = useRef(new Set<string>());
 
   const activeCustomer = useMemo(
@@ -88,6 +93,15 @@ export default function Home() {
     // Restore the user's last automation preference after hydration.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setAutomationMode(stored);
+  }, []);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem("asale-assistant-name")?.trim();
+    if (!stored) return;
+    assistantNameRef.current = stored;
+    // Restore the locally saved assistant name after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAssistantName(stored);
   }, []);
 
   useEffect(() => {
@@ -114,11 +128,11 @@ export default function Home() {
       ...item,
       unread: 0,
       hasNewMessage: false,
-      latest: automated ? "AI 已自动回复" : "Advisor 话术已发送",
+      latest: automated ? "AI 已自动回复" : `${assistantNameRef.current}话术已发送`,
       wait: "刚刚",
       waitMinutes: 0,
     } : item));
-    setNotice(automated ? `${customer.name} 的新消息已由 AI 自动回复` : `已向 ${customer.name} 发送 Advisor 话术`);
+    setNotice(automated ? `${customer.name} 的新消息已由 AI 自动回复` : `已向 ${customer.name} 发送${assistantNameRef.current}话术`);
   }, []);
 
   const autoReplyCustomer = useCallback((customer: Customer) => {
@@ -205,6 +219,14 @@ export default function Home() {
     }
   }
 
+  function renameAssistant(name: string) {
+    const nextName = name.trim().slice(0, 20) || defaultAssistantName;
+    assistantNameRef.current = nextName;
+    setAssistantName(nextName);
+    window.localStorage.setItem("asale-assistant-name", nextName);
+    setNotice(`AI 助手已命名为“${nextName}”`);
+  }
+
   function sendMessage() {
     if (!activeCustomer) return;
     const text = (drafts[activeCustomer.id] ?? "").trim();
@@ -263,6 +285,8 @@ export default function Home() {
           chatMessages={chatMessages}
           updateDraft={updateDraft}
           sendMessage={sendMessage}
+          assistantName={assistantName}
+          renameAssistant={renameAssistant}
           automationMode={automationMode}
           changeAutomationMode={changeAutomationMode}
           advisorReply={advisorReplies[activeId!] ?? ""}
@@ -286,6 +310,7 @@ export default function Home() {
           filterCount={[filters.intent, filters.stage, filters.aiState].filter((value) => value !== "全部").length}
           openFilters={() => setFiltersOpen(true)}
           setNotice={setNotice}
+          assistantName={assistantName}
         />
       )}
 
@@ -303,6 +328,7 @@ function Overview({
   filterCount,
   openFilters,
   setNotice,
+  assistantName,
 }: {
   customers: Customer[];
   openCustomer: (id: string) => void;
@@ -311,6 +337,7 @@ function Overview({
   filterCount: number;
   openFilters: () => void;
   setNotice: (value: string) => void;
+  assistantName: string;
 }) {
   const [globalPrompt, setGlobalPrompt] = useState("");
   const priorityCustomer = customers[0] ?? null;
@@ -387,7 +414,7 @@ function Overview({
                   </span>
                 </button>
                 <div className="priority-advice">
-                  <span><Sparkles size={15} /> Advisor 建议</span>
+                  <span><Sparkles size={15} /> {assistantName}建议</span>
                   <p>{priorityCustomer.aiSuggestion}</p>
                   <div><em>阶段：{priorityCustomer.stage}</em><em>客户价值：{priorityCustomer.value}</em></div>
                   <button onClick={() => openCustomer(priorityCustomer.id)}>立即跟进 <ArrowRight size={15} /></button>
@@ -405,7 +432,7 @@ function Overview({
         </section>
 
         <section className="global-ai">
-          <div className="global-ai-intro"><span className="ai-orb"><Sparkles size={18} /></span><div><strong>Advisor</strong><span>查询客户、分析机会并执行销售任务</span></div></div>
+          <div className="global-ai-intro"><span className="ai-orb"><Sparkles size={18} /></span><div><strong>{assistantName}</strong><span>查询客户、分析机会并执行销售任务</span></div></div>
           <div className="global-composer">
             <textarea value={globalPrompt} onChange={(event) => setGlobalPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); submitGlobalPrompt(); } }} aria-label="全局 AI 输入" placeholder="帮我整理今天最值得跟进的客户…" />
             <div className="composer-tools"><button aria-label="添加附件"><Paperclip size={18} /></button><div className="composer-end-tools"><button aria-label="语音输入" onClick={() => setGlobalPrompt(`${globalPrompt}（语音转写内容）`)}><Mic size={18} /></button><button className="send-circle" aria-label="发送 AI 任务" onClick={submitGlobalPrompt}><Send size={17} /></button></div></div>
@@ -417,7 +444,7 @@ function Overview({
           </div>
         </section>
       </section>
-      <OverviewProfile customer={priorityCustomer} openCustomer={openCustomer} />
+      <OverviewProfile customer={priorityCustomer} openCustomer={openCustomer} assistantName={assistantName} />
     </>
   );
 }
@@ -452,9 +479,9 @@ function TimeStatus({ minutes, label }: { minutes: number; label: string }) {
   return <em className={`time-status ${state}`}>{label}</em>;
 }
 
-function OverviewProfile({ customer, openCustomer }: { customer: Customer | null; openCustomer: (id: string) => void }) {
+function OverviewProfile({ customer, openCustomer, assistantName }: { customer: Customer | null; openCustomer: (id: string) => void; assistantName: string }) {
   if (!customer) {
-    return <aside className="profile-panel empty" aria-label="客户画像"><h2>客户画像</h2><div className="profile-empty"><span className="empty-avatar"><UserRound size={30} /></span><strong>暂无客户数据</strong><p>出现待处理客户后，Advisor 会自动展示优先客户画像。</p></div></aside>;
+    return <aside className="profile-panel empty" aria-label="客户画像"><h2>客户画像</h2><div className="profile-empty"><span className="empty-avatar"><UserRound size={30} /></span><strong>暂无客户数据</strong><p>出现待处理客户后，{assistantName}会自动展示优先客户画像。</p></div></aside>;
   }
 
   return (
@@ -464,7 +491,7 @@ function OverviewProfile({ customer, openCustomer }: { customer: Customer | null
       <section className="score-section"><span>成交评分</span><strong>{customer.confidence}</strong><div><i style={{ width: `${customer.confidence}%` }} /></div></section>
       <section className="profile-section"><span>核心需求</span><p>{customer.coreNeed}</p></section>
       <section className="profile-section"><span>最近动态</span><p>{customer.wait}前提出：{customer.latest}</p></section>
-      <section className="advisor-judgment"><span><Sparkles size={15} /> Advisor 下一步建议</span><p>{customer.aiSuggestion}</p></section>
+      <section className="advisor-judgment"><span><Sparkles size={15} /> {assistantName}下一步建议</span><p>{customer.aiSuggestion}</p></section>
       <button className="profile-primary" onClick={() => openCustomer(customer.id)}>立即跟进 <ArrowRight size={15} /></button>
       <button className="full-profile" onClick={() => openCustomer(customer.id)}>查看完整画像</button>
     </aside>
@@ -480,6 +507,8 @@ type WorkspaceProps = {
   chatMessages: Record<string, Message[]>;
   updateDraft: (value: string) => void;
   sendMessage: () => void;
+  assistantName: string;
+  renameAssistant: (name: string) => void;
   automationMode: AutomationMode;
   changeAutomationMode: (mode: AutomationMode) => void;
   advisorReply: string;
@@ -523,7 +552,7 @@ function ConversationWorkspace(props: WorkspaceProps) {
               <div className={`message-line ${message.from}`} key={message.id}>
                 <span className="message-meta">{message.from === "customer" ? customer.name : "我"} · {message.time}</span>
                 <div className="bubble">{message.text}</div>
-                {message.ai && <button className="ai-assisted" onClick={() => props.setNotice("可查看推荐原文、修改内容与推荐依据")}><Sparkles size={11} />{message.auto ? "AI 自动回复" : "Advisor 话术"}</button>}
+                {message.ai && <button className="ai-assisted" onClick={() => props.setNotice("可查看推荐原文、修改内容与推荐依据")}><Sparkles size={11} />{message.auto ? "AI 自动回复" : `${props.assistantName}话术`}</button>}
               </div>
             ))}
             <div className="new-divider"><span>以下为新消息</span></div>
@@ -555,6 +584,8 @@ function ConversationWorkspace(props: WorkspaceProps) {
 
 function AIContent(props: WorkspaceProps) {
   const customer = props.activeCustomer;
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState(props.assistantName);
   const lowConfidence = customer.confidence < 75;
   const autoEligible = props.automationMode === "auto" && customer.intent === "低";
   const modeCopy = props.automationMode === "auto"
@@ -562,12 +593,20 @@ function AIContent(props: WorkspaceProps) {
       ? "低意向客户已进入自动托管，新消息将由 AI 自动回复。"
       : "中高意向客户仍需确认后发送，避免高价值沟通误发。"
     : props.automationMode === "assist"
-      ? "话术可直接编辑，确认后由 Advisor 发送。"
-      : "Advisor 不生成或发送话术，请在客户输入框中手动回复。";
+      ? `话术可直接编辑，确认后由${props.assistantName}发送。`
+      : `${props.assistantName}不生成或发送话术，请在客户输入框中手动回复。`;
+  function saveAssistantName() {
+    props.renameAssistant(nameDraft);
+    setNameDraft(nameDraft.trim().slice(0, 20) || defaultAssistantName);
+    setRenaming(false);
+  }
   return (
     <>
       <header className="ai-header">
-        <div><h2>Advisor</h2><span>分析完成</span></div>
+        <div className="ai-title-block">
+          {renaming ? <div className="assistant-name-editor"><input value={nameDraft} onChange={(event) => setNameDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveAssistantName(); if (event.key === "Escape") { setNameDraft(props.assistantName); setRenaming(false); } }} maxLength={20} aria-label="AI 助手名称" /><button onClick={saveAssistantName} aria-label="保存助手名称"><Check size={13} /></button><button onClick={() => { setNameDraft(props.assistantName); setRenaming(false); }} aria-label="取消重命名"><X size={13} /></button></div> : <div className="assistant-name-heading"><h2>{props.assistantName}</h2><button onClick={() => { setNameDraft(props.assistantName); setRenaming(true); }} aria-label="重命名 AI 助手"><Pencil size={12} /></button></div>}
+          <span>分析完成</span>
+        </div>
         <div className="ai-header-actions">
           <strong className={lowConfidence ? "confidence low" : "confidence"}>可信度 {customer.confidence}</strong>
           <label className={`mode-selector mode-${props.automationMode}`}>
@@ -584,7 +623,7 @@ function AIContent(props: WorkspaceProps) {
         <section className={`mode-notice mode-${props.automationMode}`}><span>{automationModes.find((mode) => mode.id === props.automationMode)?.shortLabel}</span><p>{modeCopy}</p></section>
         {lowConfidence && <section className="uncertainty"><strong>不建议直接参考</strong><p>客户需求范围与采购信息不足，暂时无法准确判断价值。</p><ul><li>缺少具体采购品类</li><li>缺少预计用量</li><li>沟通时间尚未确认</li></ul></section>}
         <section className="analysis-pair"><div><span>客户意图</span><strong>{lowConfidence ? "需要补充确认" : "询价并索取产品资料"}</strong></div><div><span>客户价值</span><strong>{lowConfidence ? "暂不判断" : `${customer.intent}价值`}</strong></div></section>
-        {props.automationMode !== "manual" && <section className="reply-card editable-reply"><div className="reply-heading"><h3>{lowConfidence ? "澄清式话术" : "Advisor 推荐话术"}</h3><span>可直接编辑</span></div><textarea aria-label="Advisor 可编辑话术" value={props.advisorReply} onChange={(event) => props.updateAdvisorReply(event.target.value)} />{autoEligible ? <div className="auto-reply-state"><span className="mini-spinner" />新消息到达后自动发送</div> : <button className="primary-button" disabled={!props.advisorReply.trim()} onClick={props.sendAdvisorReply}>确认发送</button>}</section>}
+        {props.automationMode !== "manual" && <section className="reply-card editable-reply"><div className="reply-heading"><h3>{lowConfidence ? "澄清式话术" : `${props.assistantName}推荐话术`}</h3><span>可直接编辑</span></div><textarea aria-label={`${props.assistantName}可编辑话术`} value={props.advisorReply} onChange={(event) => props.updateAdvisorReply(event.target.value)} />{autoEligible ? <div className="auto-reply-state"><span className="mini-spinner" />新消息到达后自动发送</div> : <button className="primary-button" disabled={!props.advisorReply.trim()} onClick={props.sendAdvisorReply}>确认发送</button>}</section>}
         {props.automationMode !== "manual" && !lowConfidence && <button className="alternative-row">查看 2 条备选话术 <ChevronDown size={15} /></button>}
         <section className="evidence"><h3>推荐依据</h3><ul><li>明确采购场景</li><li>主动询问规格与报价</li><li>关注交付能力</li></ul></section>
         <section className="task-card"><h3>自动跟进记录</h3><p>沟通总结与客户状态将在消息发送后自动更新。</p><div><button className="primary-button" onClick={() => props.setNotice("已打开本次 AI 跟进记录")}>查看记录</button><button onClick={() => props.setNotice("可在任务页查看待确认建议")}>任务建议</button></div></section>
